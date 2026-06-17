@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Alhijra Visa OCR Assistant",
+  "version": "1.0.0",
+  "description": "Visa form field scanner, classifier, and mapping assistant for Alhijra Travel Agency",
+  "author": "Alhijra Travel Agency",
+  "homepage_url": "https://www.alhijratravel.so",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Alhijra Visa OCR Assistant",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://visa.visitsaudi.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://visa.visitsaudi.com/*"
+      ],
+      "js": [
+        "constants.js",
+        "utils.js",
+        "selectorUtils.js",
+        "classifier.js",
+        "fieldScanner.js",
+        "formFiller.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "libs/*"],
+      "matches": ["https://visa.visitsaudi.com/*"]
+    }
+  ]
+}

@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alhijra Visa OCR Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="6" fill="#163A5F"/>
+            <path d="M16 6L18 12H24L19 15.5L21 22L16 18L11 22L13 15.5L8 12H14L16 6Z" fill="#D4AF37"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Alhijra Visa OCR</h1>
+          <span class="brand-subtitle">Assistant Tool</span>
+        </div>
+      </div>
+      <div class="header-status">
+        <span id="domainStatus" class="status-badge status-unknown">Unknown</span>
+        <span class="header-divider">|</span>
+        <span class="staff-badge">Staff:
+          <select id="staffSelector" class="staff-selector">
+            <option value="staff1">Staff 1</option>
+            <option value="staff2">Staff 2</option>
+            <option value="staff3">Staff 3</option>
+            <option value="staff4">Staff 4</option>
+            <option value="staff5">Staff 5</option>
+          </select>
+        </span>
+      </div>
+    </header>
+
+    <!-- Tabs Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-action="switch-tab" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="scanner">Scanner</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="mapping">Mapping</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="profiles">Profiles</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="import-export">I/E</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="settings">Settings</button>
+      <button class="tab-btn ocr-tab-btn" data-action="switch-tab" data-tab="passport-ocr">Passport OCR</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="customer">Customer</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="travel">Travel</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="documents">Docs</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="logs">Logs</button>
+    </nav>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="loading-bar" style="display:none;">
+      <div class="loading-bar-inner"></div>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="dashboard-grid">
+        <div class="dash-card">
+          <div class="dash-card-header">Page Status</div>
+          <div class="dash-card-body">
+            <div class="dash-row"><span class="dash-label">URL</span><span id="dashUrl" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">Hostname</span><span id="dashHostname" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">Forms Found</span><span id="dashForms" class="dash-value">-</span></div>
+          </div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-header">Field Statistics</div>
+          <div class="dash-card-body">
+            <div class="dash-row"><span class="dash-label">Total Detected</span><span id="dashTotal" class="dash-value">0</span></div>
+            <div class="dash-row"><span class="dash-label">Mapped</span><span id="dashMapped" class="dash-value badge badge-mapped">0</span></div>
+            <div class="dash-row"><span class="dash-label">Ignored</span><span id="dashIgnored" class="dash-value badge badge-ignored">0</span></div>
+          </div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-header">Active Profile</div>
+          <div class="dash-card-body">
+            <div class="dash-row"><span class="dash-label">Profile</span><span id="dashProfile" class="dash-value">None</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dash-actions">
+        <button data-action="scan-fields" class="btn btn-primary">Scan Current Page Fields</button>
+        <button data-action="fill-fixed-fields" class="btn btn-gold">Fill Fixed Fields</button>
+        <button id="dashFillDynamicBtn" data-action="fill-dynamic-ocr-fields" class="btn btn-secondary" disabled>Fill Dynamic OCR Fields</button>
+        <button data-action="switch-tab" data-tab="mapping" class="btn btn-outline">Open Field Mapping</button>
+        <button data-action="export-mapping" class="btn btn-outline">Export Mapping</button>
+        <button data-action="import-mapping-trigger" class="btn btn-outline">Import Mapping</button>
+        <button data-action="clear-scan" class="btn btn-danger">Clear Current Scan</button>
+      </div>
+      <div id="dashMessage" class="status-message"></div>
+    </section>
+
+    <!-- Field Scanner Tab -->
+    <section id="tab-scanner" class="tab-content">
+      <div class="section-header">
+        <h2>Field Scanner</h2>
+        <button data-action="scan-fields" class="btn btn-primary">Scan Current Page Fields</button>
+      </div>
+      <div id="scannerMessage" class="status-message"></div>
+      <div class="scan-stats" id="scanStats" style="display:none;">
+        <span class="stat-item">Detected: <strong id="statDetected">0</strong></span>
+        <span class="stat-item">Mapped: <strong id="statMapped" class="badge badge-mapped">0</strong></span>
+        <span class="stat-item">Ignored: <strong id="statIgnored" class="badge badge-ignored">0</strong></span>
+      </div>
+      <div class="table-wrapper">
+        <table id="fieldsTable" class="data-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th class="col-label">Label</th>
+              <th class="col-type">Type</th>
+              <th class="col-name">Name</th>
+              <th class="col-id">ID</th>
+              <th class="col-ph">Placeholder</th>
+              <th class="col-req">Req</th>
+              <th class="col-vis">Vis</th>
+              <th class="col-sel">Selector</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="fieldsTableBody">
+            <tr><td colspan="10" class="empty-state">Click "Scan Current Page Fields" to detect form fields.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Field Mapping Tab -->
+    <section id="tab-mapping" class="tab-content">
+      <div class="section-header">
+        <h2>Field Mapping</h2>
+        <div class="mapping-progress">
+          <span id="mappingProgress">0 of 0 fields mapped</span>
+        </div>
+      </div>
+      <div id="mappingMessage" class="status-message"></div>
+      <div id="mappingList"></div>
+      <div class="mapping-actions">
+        <button data-action="save-mapping" class="btn btn-primary">Save Mapping to Profile</button>
+        <button data-action="fill-fixed-fields" class="btn btn-gold">Fill Fixed Fields</button>
+        <button id="mapFillDynamicBtn" data-action="fill-dynamic-ocr-fields" class="btn btn-secondary" disabled>Fill Dynamic OCR Fields</button>
+        <button data-action="clear-mapping" class="btn btn-danger">Clear All Mappings</button>
+      </div>
+    </section>
+
+    <!-- Profiles Tab -->
+    <section id="tab-profiles" class="tab-content">
+      <div class="section-header">
+        <h2>Mapping Profiles</h2>
+      </div>
+      <div id="profilesMessage" class="status-message"></div>
+      <div class="profiles-toolbar">
+        <input type="text" id="profileNameInput" placeholder="New profile name..." class="input-field">
+        <button data-action="create-profile" class="btn btn-primary">Create Profile</button>
+        <button data-action="duplicate-profile" class="btn btn-secondary">Duplicate</button>
+        <button data-action="rename-profile" class="btn btn-secondary">Rename</button>
+        <button data-action="delete-profile" class="btn btn-danger">Delete</button>
+      </div>
+      <div class="profiles-list" id="profilesList"></div>
+      <div class="profiles-actions">
+        <button data-action="save-mapping" class="btn btn-primary">Save Mapping</button>
+        <button data-action="load-mapping" class="btn btn-secondary">Load Mapping</button>
+      </div>
+    </section>
+
+    <!-- Import/Export Tab -->
+    <section id="tab-import-export" class="tab-content">
+      <div class="section-header">
+        <h2>Import / Export</h2>
+      </div>
+      <div id="importExportMessage" class="status-message"></div>
+      <div class="import-export-grid">
+        <div class="ie-card">
+          <h3>Export Mapping</h3>
+          <p>Export the current mapping profile as JSON.</p>
+          <button data-action="export-mapping" class="btn btn-primary">Export Mapping JSON</button>
+        </div>
+        <div class="ie-card">
+          <h3>Import Mapping</h3>
+          <p>Import a mapping profile from a JSON file.</p>
+          <input type="file" id="importFileInput" accept=".json" tabindex="-1">
+          <button data-action="import-mapping-trigger" class="btn btn-secondary">Import Mapping JSON</button>
+        </div>
+        <div class="ie-card">
+          <h3>Export Current Scan</h3>
+          <p>Export the current field scan as JSON.</p>
+          <button data-action="export-scan" class="btn btn-outline">Export Current Scan JSON</button>
+        </div>
+      <div class="ie-card ie-card-danger">
+        <h3>Clear All Data</h3>
+        <p>Remove all stored data from the extension.</p>
+        <button data-action="clear-all-data" class="btn btn-danger">Clear All Local Data</button>
+      </div>
+      <div class="ie-card ie-card-backup">
+        <h3>Full Backup</h3>
+        <p>Backup all profiles, mappings, settings, staff, and audit logs.</p>
+        <button data-action="create-backup" class="btn btn-primary">Download Backup</button>
+      </div>
+      <div class="ie-card ie-card-restore">
+        <h3>Restore from Backup</h3>
+        <p>Restore all data from a previous backup file.</p>
+        <input type="file" id="restoreFileInput" accept=".json" tabindex="-1">
+        <button data-action="restore-backup-trigger" class="btn btn-secondary">Restore from Backup</button>
+      </div>
+    </div>
+  </section>
+
+    <!-- Settings Tab -->
+    <section id="tab-settings" class="tab-content">
+      <div class="section-header">
+        <h2>Settings</h2>
+      </div>
+      <div id="settingsMessage" class="status-message"></div>
+      <div class="settings-form">
+        <div class="setting-row">
+          <label>Enable Field Highlight</label>
+          <select id="settingHighlight" class="select-field">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Enable Debug Mode</label>
+          <select id="settingDebug" class="select-field">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Preferred Language</label>
+          <select id="settingLanguage" class="select-field">
+            <option value="en">English</option>
+            <option value="ar">Arabic</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Date Format</label>
+          <select id="settingDateFormat" class="select-field">
+            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Auto-save Mapping</label>
+          <select id="settingAutoSave" class="select-field">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Confirm Before Saving</label>
+          <select id="settingConfirmSave" class="select-field">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Date Fill Mode</label>
+          <select id="settingDateFillMode" class="select-field">
+            <option value="auto">Auto (detect)</option>
+            <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+            <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+            <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+            <option value="skip">Skip dates</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Confirm Before Customer Fill</label>
+          <select id="settingConfirmBeforeCustomerFill" class="select-field">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Confirm Before Travel Fill</label>
+          <select id="settingConfirmBeforeTravelFill" class="select-field">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Confirm Before Document Review</label>
+          <select id="settingConfirmBeforeDocReview" class="select-field">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="settings-actions">
+          <button data-action="save-settings" class="btn btn-primary">Save Settings</button>
+          <button data-action="reset-settings" class="btn btn-outline">Reset to Default</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Passport OCR Tab -->
+    <section id="tab-passport-ocr" class="tab-content">
+      <div class="section-header">
+        <h2>Passport OCR</h2>
+      </div>
+      <div id="ocrMessage" class="status-message"></div>
+
+      <!-- Upload Area -->
+      <div id="ocrUploadArea" class="ocr-upload-area">
+        <div class="ocr-upload-content">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect x="6" y="10" width="36" height="28" rx="4" stroke="#8CBFE8" stroke-width="2" fill="none"/>
+            <circle cx="26" cy="22" r="6" stroke="#8CBFE8" stroke-width="2" fill="none"/>
+            <path d="M6 30L16 22L22 28L30 18L42 32V38H6V30Z" fill="#8CBFE8" opacity="0.3"/>
+          </svg>
+          <p class="ocr-upload-text">Drag &amp; drop passport image here</p>
+          <p class="ocr-upload-sub">or click to browse (JPG, PNG, WEBP — max 10 MB)</p>
+          <input type="file" id="ocrFileInput" accept=".jpg,.jpeg,.png,.webp" class="ocr-file-input">
+          <button data-action="ocr-browse" class="btn btn-primary">Browse File</button>
+        </div>
+      </div>
+
+      <!-- Image Preview -->
+      <div id="ocrPreviewArea" class="ocr-preview-area" style="display:none;">
+        <div class="ocr-preview-header">
+          <span class="ocr-preview-label">Passport Image Preview</span>
+          <button data-action="ocr-clear-image" class="btn btn-sm btn-outline">Clear Image</button>
+        </div>
+        <div class="ocr-preview-image-wrapper">
+          <img id="ocrPreviewImage" class="ocr-preview-image" alt="Passport preview">
+        </div>
+      </div>
+
+      <!-- OCR Controls -->
+      <div class="ocr-controls">
+        <button id="ocrRunBtn" data-action="ocr-run" class="btn btn-gold" disabled>Run OCR</button>
+        <button id="ocrStopBtn" data-action="ocr-stop" class="btn btn-danger" style="display:none;">Stop</button>
+        <button id="ocrClearBtn" data-action="ocr-clear-all" class="btn btn-outline" disabled>Clear Passport Data</button>
+      </div>
+
+      <!-- OCR Progress -->
+      <div id="ocrProgressArea" class="ocr-progress-area" style="display:none;">
+        <div class="ocr-progress-bar-bg">
+          <div id="ocrProgressBar" class="ocr-progress-bar-fill" style="width:0%;"></div>
+        </div>
+        <div id="ocrProgressStatus" class="ocr-progress-status">Initializing...</div>
+      </div>
+
+      <!-- Extracted Data Review -->
+      <div id="ocrDataReview" class="ocr-data-review" style="display:none;">
+        <div class="ocr-section-title">Extracted Passport Data</div>
+        <div class="ocr-data-grid">
+          <div class="ocr-data-field">
+            <label>Passport Number</label>
+            <input type="text" id="ocrPassportNumber" class="ocr-input" data-ocr-field="passportNumber">
+          </div>
+          <div class="ocr-data-field">
+            <label>First Name</label>
+            <input type="text" id="ocrFirstName" class="ocr-input" data-ocr-field="firstName">
+          </div>
+          <div class="ocr-data-field">
+            <label>Middle Name</label>
+            <input type="text" id="ocrMiddleName" class="ocr-input" data-ocr-field="middleName">
+          </div>
+          <div class="ocr-data-field">
+            <label>Last Name</label>
+            <input type="text" id="ocrLastName" class="ocr-input" data-ocr-field="lastName">
+          </div>
+          <div class="ocr-data-field">
+            <label>Full Name</label>
+            <input type="text" id="ocrFullName" class="ocr-input" data-ocr-field="fullName">
+          </div>
+          <div class="ocr-data-field">
+            <label>Nationality</label>
+            <input type="text" id="ocrNationality" class="ocr-input" data-ocr-field="nationality">
+          </div>
+          <div class="ocr-data-field">
+            <label>Country Code</label>
+            <input type="text" id="ocrCountryCode" class="ocr-input" data-ocr-field="countryCode">
+          </div>
+          <div class="ocr-data-field">
+            <label>Date of Birth</label>
+            <input type="text" id="ocrDateOfBirth" class="ocr-input" data-ocr-field="dateOfBirth" placeholder="YYYY-MM-DD">
+          </div>
+          <div class="ocr-data-field">
+            <label>Gender</label>
+            <input type="text" id="ocrGender" class="ocr-input" data-ocr-field="gender">
+          </div>
+          <div class="ocr-data-field">
+            <label>Passport Expiry Date</label>
+            <input type="text" id="ocrExpiryDate" class="ocr-input" data-ocr-field="passportExpiryDate" placeholder="YYYY-MM-DD">
+          </div>
+          <div class="ocr-data-field">
+            <label>Issuing Country</label>
+            <input type="text" id="ocrIssuingCountry" class="ocr-input" data-ocr-field="issuingCountry">
+          </div>
+          <div class="ocr-data-field">
+            <label>Document Type</label>
+            <input type="text" id="ocrDocumentType" class="ocr-input" data-ocr-field="documentType">
+          </div>
+        </div>
+
+        <!-- MRZ Details -->
+        <div class="ocr-section-title">MRZ Details</div>
+        <div class="ocr-mrz-details">
+          <div class="ocr-detail-row">
+            <span class="ocr-detail-label">MRZ Line 1</span>
+            <code id="ocrMrzLine1" class="ocr-mrz-code">-</code>
+          </div>
+          <div class="ocr-detail-row">
+            <span class="ocr-detail-label">MRZ Line 2</span>
+            <code id="ocrMrzLine2" class="ocr-mrz-code">-</code>
+          </div>
+          <div class="ocr-detail-row">
+            <span class="ocr-detail-label">Check Digit</span>
+            <span id="ocrCheckDigitStatus" class="ocr-check-badge">-</span>
+          </div>
+          <div class="ocr-detail-row">
+            <span class="ocr-detail-label">OCR Confidence</span>
+            <span id="ocrConfidenceValue" class="ocr-confidence">-</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="ocr-data-actions">
+          <button data-action="ocr-confirm-data" class="btn btn-primary">Confirm Passport Data</button>
+          <button id="ocrFillDynamicBtn" data-action="fill-dynamic-ocr-fields" class="btn btn-secondary" disabled>Fill Dynamic OCR Fields</button>
+          <button data-action="ocr-clear-all" class="btn btn-outline">Clear Passport Data</button>
+          <button data-action="ocr-copy-json" class="btn btn-outline">Copy Data JSON</button>
+        </div>
+      </div>
+
+      <!-- Debug Section -->
+      <div id="ocrDebugSection" class="ocr-debug-section" style="display:none;">
+        <div class="ocr-section-title">Raw OCR Text (Debug)</div>
+        <pre id="ocrRawText" class="ocr-raw-text"></pre>
+      </div>
+    </section>
+
+    <!-- Customer Data Tab -->
+    <section id="tab-customer" class="tab-content">
+      <div class="section-header">
+        <h2>Customer Data</h2>
+      </div>
+      <div id="customerMessage" class="status-message"></div>
+
+      <div id="customerSavedBanner" class="session-saved-banner" style="display:none;">
+        <span>&#10003; Customer data saved for this session</span>
+        <button data-action="customer-clear-session" class="btn btn-sm btn-outline">Clear</button>
+      </div>
+
+      <div class="customer-form">
+        <div class="customer-form-row">
+          <div class="customer-field">
+            <label>Phone Number</label>
+            <input type="text" id="customerPhone" class="customer-input" data-customer-field="phoneNumber" placeholder="+252...">
+          </div>
+          <div class="customer-field">
+            <label>Email</label>
+            <input type="email" id="customerEmail" class="customer-input" data-customer-field="email" placeholder="customer@example.com">
+          </div>
+        </div>
+        <div class="customer-form-row">
+          <div class="customer-field">
+            <label>Address</label>
+            <input type="text" id="customerAddress" class="customer-input" data-customer-field="address" placeholder="Street, City, Country">
+          </div>
+          <div class="customer-field">
+            <label>Occupation</label>
+            <input type="text" id="customerOccupation" class="customer-input" data-customer-field="occupation" placeholder="e.g. Engineer">
+          </div>
+        </div>
+        <div class="customer-form-row">
+          <div class="customer-field">
+            <label>Marital Status</label>
+            <select id="customerMaritalStatus" class="customer-input" data-customer-field="maritalStatus">
+              <option value="">-- Select --</option>
+              <option value="Single">Single</option>
+              <option value="Married">Married</option>
+              <option value="Divorced">Divorced</option>
+              <option value="Widowed">Widowed</option>
+            </select>
+          </div>
+          <div class="customer-field">
+            <label>Emergency Contact</label>
+            <input type="text" id="customerEmergency" class="customer-input" data-customer-field="emergencyContact" placeholder="Name and phone">
+          </div>
+        </div>
+        <div class="customer-form-row">
+          <div class="customer-field customer-field-full">
+            <label>Customer Notes</label>
+            <textarea id="customerNotes" class="customer-input customer-textarea" data-customer-field="customerNotes" rows="2" placeholder="Additional notes..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="customer-actions">
+        <button data-action="customer-save-session" class="btn btn-primary">Save Customer Data for Session</button>
+        <button data-action="customer-clear-session" class="btn btn-outline">Clear Customer Data</button>
+        <button id="customerFillBtn" data-action="customer-fill-fields" class="btn btn-gold" disabled>Fill Customer Fields</button>
+      </div>
+    </section>
+
+    <!-- Travel Data Tab -->
+    <section id="tab-travel" class="tab-content">
+      <div class="section-header">
+        <h2>Travel Data</h2>
+      </div>
+      <div id="travelMessage" class="status-message"></div>
+
+      <div id="travelSavedBanner" class="session-saved-banner" style="display:none;">
+        <span>&#10003; Travel data saved for this session</span>
+        <button data-action="travel-clear-session" class="btn btn-sm btn-outline">Clear</button>
+      </div>
+
+      <div class="travel-form">
+        <div class="travel-form-row">
+          <div class="travel-field">
+            <label>Arrival Date</label>
+            <input type="date" id="travelArrivalDate" class="travel-input" data-travel-field="arrivalDate">
+          </div>
+          <div class="travel-field">
+            <label>Departure Date</label>
+            <input type="date" id="travelDepartureDate" class="travel-input" data-travel-field="departureDate">
+          </div>
+        </div>
+        <div class="travel-form-row">
+          <div class="travel-field">
+            <label>Flight Number</label>
+            <input type="text" id="travelFlightNumber" class="travel-input" data-travel-field="flightNumber" placeholder="e.g. TK1234">
+          </div>
+          <div class="travel-field">
+            <label>Departure City</label>
+            <input type="text" id="travelDepartureCity" class="travel-input" data-travel-field="departureCity" placeholder="e.g. Mogadishu">
+          </div>
+        </div>
+        <div class="travel-form-row">
+          <div class="travel-field">
+            <label>Arrival City</label>
+            <input type="text" id="travelArrivalCity" class="travel-input" data-travel-field="arrivalCity" placeholder="e.g. Jeddah">
+          </div>
+          <div class="travel-field">
+            <label>Hotel Name</label>
+            <input type="text" id="travelHotelName" class="travel-input" data-travel-field="hotelName" placeholder="Hotel name">
+          </div>
+        </div>
+        <div class="travel-form-row">
+          <div class="travel-field">
+            <label>Hotel Address</label>
+            <input type="text" id="travelHotelAddress" class="travel-input" data-travel-field="hotelAddress" placeholder="Hotel address">
+          </div>
+          <div class="travel-field">
+            <label>Stay Duration</label>
+            <input type="text" id="travelStayDuration" class="travel-input" data-travel-field="stayDuration" placeholder="e.g. 7 days">
+          </div>
+        </div>
+        <div class="travel-form-row">
+          <div class="travel-field travel-field-full">
+            <label>Package Name</label>
+            <input type="text" id="travelPackageName" class="travel-input" data-travel-field="packageName" placeholder="e.g. Umrah Plus">
+          </div>
+        </div>
+      </div>
+
+      <div class="travel-actions">
+        <button data-action="travel-save-session" class="btn btn-primary">Save Travel Data for Session</button>
+        <button data-action="travel-clear-session" class="btn btn-outline">Clear Travel Data</button>
+        <button id="travelFillBtn" data-action="travel-fill-fields" class="btn btn-gold" disabled>Fill Travel Fields</button>
+      </div>
+    </section>
+
+    <!-- Documents Tab -->
+    <section id="tab-documents" class="tab-content">
+      <div class="section-header">
+        <h2>Documents</h2>
+      </div>
+      <div id="documentsMessage" class="status-message"></div>
+
+      <div class="docs-info">
+        <p>Review mapped upload fields and prepare documents. Staff must manually upload files to the website fields.</p>
+      </div>
+
+      <div id="docsMappingList" class="docs-mapping-list">
+        <p class="empty-state">No File Upload fields mapped. Please scan a page and map file upload fields first.</p>
+      </div>
+
+      <div class="docs-actions">
+        <button data-action="docs-highlight-fields" class="btn btn-primary">Highlight Upload Fields</button>
+        <button data-action="docs-refresh" class="btn btn-outline">Refresh</button>
+      </div>
+    </section>
+
+    <!-- Logs Tab -->
+    <section id="tab-logs" class="tab-content">
+      <div class="section-header">
+        <h2>Audit Log</h2>
+      </div>
+      <div id="logsMessage" class="status-message"></div>
+
+      <div class="logs-controls">
+        <div class="logs-filters">
+          <label>Type:
+            <select id="logTypeFilter">
+              <option value="">All Types</option>
+              <option value="fill_fixed">Fixed Fill</option>
+              <option value="fill_ocr">OCR Fill</option>
+              <option value="fill_customer">Customer Fill</option>
+              <option value="fill_travel">Travel Fill</option>
+              <option value="ocr_run">OCR Run</option>
+              <option value="ocr_confirm">OCR Confirm</option>
+              <option value="backup">Backup</option>
+              <option value="restore">Restore</option>
+              <option value="staff_change">Staff Change</option>
+            </select>
+          </label>
+          <label>Staff:
+            <select id="logStaffFilter">
+              <option value="">All Staff</option>
+            </select>
+          </label>
+          <button data-action="logs-apply-filters" class="btn btn-sm btn-outline">Filter</button>
+        </div>
+        <div class="logs-actions">
+          <button data-action="logs-refresh" class="btn btn-sm btn-outline">Refresh</button>
+          <button data-action="logs-export" class="btn btn-sm btn-primary">Export JSON</button>
+          <button data-action="logs-clear" class="btn btn-sm btn-danger">Clear All</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table log-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Staff</th>
+              <th>Type</th>
+              <th>Profile</th>
+              <th>Filled</th>
+              <th>Failed</th>
+              <th>Skipped</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+            <tr><td colspan="7" class="empty-state">No audit logs yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Fill Review Modal (hidden by default) -->
+    <div id="fillReviewModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-review">
+        <div class="modal-header">
+          <h3>Review Fixed Fields Fill</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="fillReviewInfo" class="fill-review-info"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="fillReviewTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>Source</th>
+                  <th>Default Value</th>
+                  <th>Confidence</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="fillReviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-review-footer">
+          <button data-action="confirm-fill" class="btn btn-gold">Confirm Fill</button>
+          <button data-action="close-modal" class="btn btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fill Result Modal (hidden by default) -->
+    <div id="fillResultModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-result">
+        <div class="modal-header">
+          <h3>Fixed Fields Fill Result</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="fillResultSummary" class="fill-result-summary"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="fillResultTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>Value</th>
+                  <th>Result</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="fillResultBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-result-footer">
+          <button data-action="close-modal" class="btn btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dynamic OCR Fill Review Modal (hidden by default) -->
+    <div id="dynamicFillReviewModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-review">
+        <div class="modal-header">
+          <h3>Review Dynamic OCR Fields Fill</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="dynamicFillReviewInfo" class="fill-review-info"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="dynamicFillReviewTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>OCR Source</th>
+                  <th>Passport Value</th>
+                  <th>Confidence</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="dynamicFillReviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-review-footer">
+          <button data-action="confirm-dynamic-fill" class="btn btn-gold">Confirm Fill Dynamic Fields</button>
+          <button data-action="close-modal" class="btn btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dynamic OCR Fill Result Modal (hidden by default) -->
+    <div id="dynamicFillResultModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-result">
+        <div class="modal-header">
+          <h3>Dynamic OCR Fields Fill Result</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="dynamicFillResultSummary" class="fill-result-summary"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="dynamicFillResultTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>Source</th>
+                  <th>Value</th>
+                  <th>Result</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="dynamicFillResultBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-result-footer">
+          <button data-action="close-modal" class="btn btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Fill Review Modal -->
+    <div id="customerFillReviewModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-review">
+        <div class="modal-header">
+          <h3>Review Customer Fields Fill</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="customerFillReviewInfo" class="fill-review-info"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="customerFillReviewTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>Source</th>
+                  <th>Customer Value</th>
+                  <th>Confidence</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="customerFillReviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-review-footer">
+          <button data-action="confirm-customer-fill" class="btn btn-gold">Confirm Fill Customer Fields</button>
+          <button data-action="close-modal" class="btn btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Fill Result Modal -->
+    <div id="customerFillResultModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-result">
+        <div class="modal-header">
+          <h3>Customer Fields Fill Result</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="customerFillResultSummary" class="fill-result-summary"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="customerFillResultTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>Source</th>
+                  <th>Value</th>
+                  <th>Result</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="customerFillResultBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-result-footer">
+          <button data-action="close-modal" class="btn btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Travel Fill Review Modal -->
+    <div id="travelFillReviewModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-review">
+        <div class="modal-header">
+          <h3>Review Travel Fields Fill</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="travelFillReviewInfo" class="fill-review-info"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="travelFillReviewTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>Source</th>
+                  <th>Travel Value</th>
+                  <th>Confidence</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="travelFillReviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-review-footer">
+          <button data-action="confirm-travel-fill" class="btn btn-gold">Confirm Fill Travel Fields</button>
+          <button data-action="close-modal" class="btn btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Travel Fill Result Modal -->
+    <div id="travelFillResultModal" class="modal-overlay" style="display:none;">
+      <div class="modal-content modal-fill-result">
+        <div class="modal-header">
+          <h3>Travel Fields Fill Result</h3>
+          <button class="modal-close" data-action="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="travelFillResultSummary" class="fill-result-summary"></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="travelFillResultTable">
+              <thead>
+                <tr>
+                  <th>Field Label</th>
+                  <th>Source</th>
+                  <th>Value</th>
+                  <th>Result</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="travelFillResultBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer fill-result-footer">
+          <button data-action="close-modal" class="btn btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>Alhijra Travel Agency &copy; 2026</span>
+      <span class="footer-version">v1.0.0</span>
+    </footer>
+  </div>
+
+  <script src="libs/tesseract.min.js"></script>
+  <script src="mrzParser.js"></script>
+  <script src="ocrEngine.js"></script>
+  <script src="constants.js"></script>
+  <script src="utils.js"></script>
+  <script src="selectorUtils.js"></script>
+  <script src="classifier.js"></script>
+  <script src="fieldScanner.js"></script>
+  <script src="storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
