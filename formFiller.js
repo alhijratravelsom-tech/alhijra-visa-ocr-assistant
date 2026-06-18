@@ -278,12 +278,33 @@ function fillFixedFields(fields) {
 function formatDateForField(dateStr, element, dateFillMode) {
   if (!dateStr || dateStr.length < 10) return dateStr;
   if (element && element.type === 'date') return dateStr;
-  if (!dateFillMode || dateFillMode === 'auto') return dateStr;
   var parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   var y = parts[0], m = parts[1], d = parts[2];
+
+  /* Auto-detect format from placeholder if set to auto */
+  if (!dateFillMode || dateFillMode === 'auto') {
+    if (element && element.placeholder) {
+      var ph = element.placeholder.toLowerCase();
+      var phParts = ph.split(/[^a-z]+/);
+      var phJoined = phParts.join('');
+      if (phJoined.indexOf('dd') < phJoined.indexOf('mm') && phJoined.indexOf('mm') < phJoined.indexOf('yyyy')) {
+        dateFillMode = 'dd/mm/yyyy';
+      } else if (phJoined.indexOf('mm') < phJoined.indexOf('dd') && phJoined.indexOf('dd') < phJoined.indexOf('yyyy')) {
+        dateFillMode = 'mm/dd/yyyy';
+      } else if (phJoined.indexOf('yyyy') < phJoined.indexOf('mm') && phJoined.indexOf('mm') < phJoined.indexOf('dd')) {
+        dateFillMode = 'yyyy/mm/dd';
+      }
+    }
+    if (!dateFillMode || dateFillMode === 'auto') return dateStr;
+  }
+
   if (dateFillMode === 'dd/mm/yyyy') return d + '/' + m + '/' + y;
   if (dateFillMode === 'mm/dd/yyyy') return m + '/' + d + '/' + y;
+  if (dateFillMode === 'dd.mm.yyyy') return d + '.' + m + '.' + y;
+  if (dateFillMode === 'dd-mm-yyyy') return d + '-' + m + '-' + y;
+  if (dateFillMode === 'yyyy/mm/dd') return y + '/' + m + '/' + d;
+  if (dateFillMode === 'yyyy.mm.dd') return y + '.' + m + '.' + d;
   return dateStr;
 }
 

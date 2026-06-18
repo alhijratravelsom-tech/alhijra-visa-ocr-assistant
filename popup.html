@@ -83,6 +83,42 @@
           </div>
         </div>
       </div>
+      <!-- Analytics Cards -->
+      <div class="dashboard-grid analytics-section">
+        <div class="dash-card dash-card-analytics">
+          <div class="dash-card-header">Analytics Overview</div>
+          <div class="dash-card-body analytics-stats">
+            <div class="dash-row"><span class="dash-label">Total Profiles</span><span id="anaProfiles" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">Total Mappings</span><span id="anaMappings" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">Fills Today</span><span id="anaFillsToday" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">Total Fills</span><span id="anaTotalFills" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">OCR Runs</span><span id="anaOcrRuns" class="dash-value">-</span></div>
+          </div>
+        </div>
+        <div class="dash-card dash-card-analytics">
+          <div class="dash-card-header">Fill Success Rates</div>
+          <div class="dash-card-body analytics-stats">
+            <div class="dash-row"><span class="dash-label">Fixed Fill</span><span id="anaFixedRate" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">OCR Fill</span><span id="anaOcrFillRate" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">Customer Fill</span><span id="anaCustomerRate" class="dash-value">-</span></div>
+            <div class="dash-row"><span class="dash-label">Travel Fill</span><span id="anaTravelRate" class="dash-value">-</span></div>
+          </div>
+        </div>
+        <div class="dash-card dash-card-analytics dash-card-wide">
+          <div class="dash-card-header">Recent Activity</div>
+          <div class="dash-card-body">
+            <table class="data-table mini-table" id="anaRecentTable">
+              <thead>
+                <tr><th>Time</th><th>Staff</th><th>Action</th><th>Result</th></tr>
+              </thead>
+              <tbody id="anaRecentBody">
+                <tr><td colspan="4" class="empty-state">No recent activity.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div class="dash-actions">
         <button data-action="scan-fields" class="btn btn-primary">Scan Current Page Fields</button>
         <button data-action="fill-fixed-fields" class="btn btn-gold">Fill Fixed Fields</button>
@@ -106,6 +142,9 @@
         <span class="stat-item">Detected: <strong id="statDetected">0</strong></span>
         <span class="stat-item">Mapped: <strong id="statMapped" class="badge badge-mapped">0</strong></span>
         <span class="stat-item">Ignored: <strong id="statIgnored" class="badge badge-ignored">0</strong></span>
+        <span class="stat-item">
+          <input type="text" id="fieldFilterInput" class="field-filter-input" placeholder="Filter fields..." style="display:none;">
+        </span>
       </div>
       <div class="table-wrapper">
         <table id="fieldsTable" class="data-table">
@@ -127,6 +166,11 @@
             <tr><td colspan="10" class="empty-state">Click "Scan Current Page Fields" to detect form fields.</td></tr>
           </tbody>
         </table>
+        <div class="pagination-controls" id="fieldPagination" style="display:none;">
+          <button data-action="field-page-prev" class="btn btn-sm btn-outline" disabled>&larr; Prev</button>
+          <span id="fieldPageInfo" class="pagination-info">Page 1 of 1</span>
+          <button data-action="field-page-next" class="btn btn-sm btn-outline" disabled>Next &rarr;</button>
+        </div>
       </div>
     </section>
 
@@ -207,6 +251,11 @@
         <input type="file" id="restoreFileInput" accept=".json" tabindex="-1">
         <button data-action="restore-backup-trigger" class="btn btn-secondary">Restore from Backup</button>
       </div>
+      <div class="ie-card ie-card-report">
+        <h3>Generate Report</h3>
+        <p>Download a fill activity report with per-profile stats and success rates.</p>
+        <button data-action="generate-report" class="btn btn-outline">Download Report JSON</button>
+      </div>
     </div>
   </section>
 
@@ -263,10 +312,14 @@
         <div class="setting-row">
           <label>Date Fill Mode</label>
           <select id="settingDateFillMode" class="select-field">
-            <option value="auto">Auto (detect)</option>
+            <option value="auto">Auto (detect from element)</option>
             <option value="yyyy-mm-dd">YYYY-MM-DD</option>
             <option value="dd/mm/yyyy">DD/MM/YYYY</option>
             <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+            <option value="dd.mm.yyyy">DD.MM.YYYY</option>
+            <option value="dd-mm-yyyy">DD-MM-YYYY</option>
+            <option value="yyyy/mm/dd">YYYY/MM/DD</option>
+            <option value="yyyy.mm.dd">YYYY.MM.DD</option>
             <option value="skip">Skip dates</option>
           </select>
         </div>

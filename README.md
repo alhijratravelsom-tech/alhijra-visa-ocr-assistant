@@ -3,8 +3,8 @@
 **Client:** Alhijra Travel Agency  
 **Website:** [www.alhijratravel.so](https://www.alhijratravel.so)  
 **Email:** info@alhijratravel.so  
-**Version:** 1.0.0 (Phases 1-6)  
-**ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.4 MB, 26 files)
+**Version:** 1.0.0 (Phases 1-7)  
+**ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.5 MB, 26 files)
 
 ## Overview
 
@@ -23,7 +23,7 @@ Alhijra Visa OCR Assistant is a Chrome Extension that helps travel agency staff 
 9. Staff must review all extracted data before filling forms
 10. Only runs on `https://visa.visitsaudi.com/*`
 
-## Phase 1-6 Features
+## Phase 1-7 Features
 
 - **Field Scanner**: Detects all visible form fields (input, select, textarea, checkbox, radio, file)
 - **Field Classification**: Auto-suggests categories based on field labels and attributes
@@ -79,6 +79,17 @@ Alhijra Visa OCR Assistant is a Chrome Extension that helps travel agency staff 
 - **Audit Log Clear**: Clear all audit logs with confirmation prompt
 - **Privacy-Preserving Logs**: Audit logs store only metadata (counts, timestamps, profile names) — no passport/customer/travel values
 - **No New Permissions**: Phase 6 uses existing `storage`, `activeTab`, `scripting` permissions only
+
+### Phase 7 Features
+
+- **Dashboard Analytics**: Stats cards on the Dashboard tab showing total profiles, total mappings, fills today, total fills, OCR runs, and fill success rates per type
+- **Recent Activity Panel**: Last 8 audit log entries shown directly on the Dashboard with time, staff, action, and result
+- **Advanced Reporting**: Download a fill activity report (JSON) from Import/Export tab with per-profile stats, action type breakdown, staff activity counts, success rates, and activity period
+- **Field Table Pagination**: Fields in the Scanner tab are paginated (50 per page) with Prev/Next controls for large forms
+- **Field Search/Filter**: Real-time text filter input in Scanner tab to search fields by label, name, ID, type, or placeholder
+- **Keyboard Shortcuts**: Ctrl+Enter to confirm modal actions, Escape to close modals, Ctrl+Shift+1–9 to switch between tabs
+- **Enhanced Date Handling**: Auto-detection of date format from input placeholder; new formats: DD.MM.YYYY, DD-MM-YYYY, YYYY/MM/DD, YYYY.MM.DD
+- **Smarter Date Auto Mode**: Date Fill Mode "Auto" now inspects the element's placeholder text to guess the expected format before falling back to YYYY-MM-DD
 
 ## Installation
 
@@ -586,6 +597,49 @@ Backup files contain staff configuration but do NOT contain passport numbers, cu
 - [ ] Log entries show correct counts (filled/failed/skipped)
 - [ ] No passport/customer/travel values appear in log entries
 
+### Dashboard Analytics (Phase 7)
+- [ ] Open Dashboard tab — analytics section shows below the main cards
+- [ ] Analytics card shows: Total Profiles, Total Mappings, Fills Today, Total Fills, OCR Runs
+- [ ] Fill success rates card shows percentages for Fixed, OCR, Customer, Travel fills
+- [ ] Recent Activity panel shows last 8 audit log entries with time, staff, action, result
+- [ ] Perform a fill operation — Dashboard refreshes (switch away and back) to show updated stats
+
+### Advanced Reporting (Phase 7)
+- [ ] Go to Import/Export tab, click **Download Report**
+- [ ] Report JSON is downloaded with correct structure
+- [ ] Report contains: summary, profileStats, actionTypeBreakdown, staffActivity
+
+### Field Table Pagination (Phase 7)
+- [ ] Scan 60+ fields on a page
+- [ ] Scanner tab shows first 50 fields with pagination controls
+- [ ] Click Next — shows remaining fields
+- [ ] Click Prev — returns to previous page
+- [ ] Page info shows correct "Page X of Y (Z fields)"
+
+### Field Search/Filter (Phase 7)
+- [ ] After scan, filter input is visible when 10+ fields detected
+- [ ] Type a field label in filter — table filters in real time
+- [ ] Clear filter — all fields shown again
+- [ ] Filter works on label, name, ID, type, and placeholder
+
+### Keyboard Shortcuts (Phase 7)
+- [ ] Open a modal (e.g., Fill Review) — press Escape — modal closes
+- [ ] Open a modal with a confirm button — press Ctrl+Enter — confirm action triggered
+- [ ] Press Ctrl+Shift+1 — switches to Dashboard tab
+- [ ] Press Ctrl+Shift+2 — switches to Scanner tab
+- [ ] Press Ctrl+Shift+3 through 9 — switch to corresponding tabs
+
+### Enhanced Date Handling (Phase 7)
+- [ ] Set Date Fill Mode to "Auto (detect from element)"
+- [ ] Map a date field with placeholder "DD/MM/YYYY" — fill uses DD/MM/YYYY format
+- [ ] Map a date field with placeholder "MM/DD/YYYY" — fill uses MM/DD/YYYY format
+- [ ] Map a date field with no placeholder — fill uses YYYY-MM-DD (default)
+- [ ] Set Date Fill Mode to "DD.MM.YYYY" — filled dates use dot separator
+- [ ] Set Date Fill Mode to "DD-MM-YYYY" — filled dates use dash separator
+- [ ] Set Date Fill Mode to "YYYY/MM/DD" — filled dates use slash with year first
+- [ ] Set Date Fill Mode to "YYYY.MM.DD" — filled dates use dot with year first
+- [ ] Set Date Fill Mode to "Skip dates" — date fields are not filled
+
 ### Dynamic OCR Field Fill (Phase 4)
 - [ ] Scan and map fields on visa page as "Dynamic OCR Field"
 - [ ] Assign data sources (passportNumber, firstName, nationality, etc.) to mapped fields
@@ -693,7 +747,7 @@ alhijra-visa-ocr-assistant/
 ├── ocrEngine.js           (Phase 3 - OCR orchestration)
 ├── storage.js             (Phase 6 - backup/restore, audit log CRUD, staff CRUD)
 ├── constants.js           (Phase 6 - STAFF_MEMBERS, AUDIT_EVENT_TYPES, new STORAGE_KEYS/DEFAULT_SETTINGS)
-├── utils.js
+├── utils.js               (Phase 7 - enhanced formatDate with auto-detect)
 ├── download-lang-data.ps1   (script in libs/ to download eng.traineddata)
 ├── libs/
 │   ├── tesseract.min.js          (Phase 3 - Tesseract.js browser bundle)
@@ -711,7 +765,7 @@ alhijra-visa-ocr-assistant/
 └── README.md
 ```
 
-## Known Limitations (Phases 1-6)
+## Known Limitations (Phases 1-7)
 
 - Dynamic Customer/Travel field auto-fill is NOT implemented (future phases)
 - Does not support iframe fields
@@ -735,15 +789,20 @@ alhijra-visa-ocr-assistant/
 - Multi-staff support is local only — no server sync or shared staff list across devices
 - Backup restores all data including audit logs; restoring a backup overwrites current logs
 - Staff list is predefined (5 staff members) — custom staff names not supported in this version
+- Analytics stats are read-only (Dashboard displays data, no chart/graph visualization)
+- Pagination resets when filter text changes
+- Keyboard shortcuts do not work when input fields are focused (e.g., typing in a filter box while pressing Esc closes the modal anyway)
+- Date auto-detection from placeholder uses English pattern detection only; Arabic placeholders may fall back to YYYY-MM-DD
+- Report generation exports JSON only — no PDF or CSV formats available
 
 ## Next Phase Plan
 
-### Phase 7: UI Polish & Performance
-- Dashboard analytics overview
-- Advanced reporting
-- Performance optimizations for large profiles
-- Keyboard shortcuts
-- Enhanced date handling improvements
+### Phase 8: Cloud Sync & Collaboration
+- Cloud backup/restore via Firebase or similar
+- Real-time staff sync across devices
+- Shared profiles and mappings
+- Role-based access control
+- Advanced analytics dashboard with charts
 
 ## License
 

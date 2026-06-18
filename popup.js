@@ -14,6 +14,10 @@
 
   window.alhijraSessionData = sessionData;
 
+  /* Phase 7 — pagination state */
+  var fieldPageSize = 50;
+  var fieldCurrentPage = 1;
+
   /* ==================== PHASE 6 — AUDIT LOGGING ==================== */
 
   function getCurrentStaffId() {
@@ -88,6 +92,7 @@
   function setupEventDelegation() {
     document.addEventListener('click', handleClick);
     document.addEventListener('change', handleChange);
+    document.addEventListener('keydown', handleKeydown);
     document.getElementById('importFileInput').addEventListener('change', importMappingHandler);
     document.getElementById('restoreFileInput').addEventListener('change', restoreBackupHandler);
   }
@@ -143,10 +148,18 @@
       case 'travel-clear-session': clearTravelSession(); break;
       case 'travel-fill-fields': showTravelFillReviewModal(); break;
       case 'confirm-travel-fill': confirmTravelFill(); break;
+      case 'field-page-prev':
+        if (fieldCurrentPage > 1) { fieldCurrentPage--; renderFieldsTable(); }
+        break;
+      case 'field-page-next':
+        var totalPages = Math.max(1, Math.ceil(currentFields.length / fieldPageSize));
+        if (fieldCurrentPage < totalPages) { fieldCurrentPage++; renderFieldsTable(); }
+        break;
       case 'docs-highlight-fields': highlightDocUploadFields(); break;
       case 'docs-refresh': refreshDocsList(); break;
       /* Phase 6 */
       case 'create-backup': createBackupHandler(); break;
+      case 'generate-report': generateReportHandler(); break;
       case 'restore-backup-trigger': document.getElementById('restoreFileInput').click(); break;
       case 'logs-refresh': renderAuditLogs(); break;
       case 'logs-export': exportAuditLogs(); break;
@@ -155,10 +168,53 @@
     }
   }
 
+  /* ==================== PHASE 7 — KEYBOARD SHORTCUTS ==================== */
+
+  function handleKeydown(e) {
+    /* Ctrl+Enter — confirm modal action */
+    if (e.ctrlKey && e.key === 'Enter') {
+      var visibleModal = document.querySelector('.modal-overlay[style*="flex"]');
+      if (visibleModal) {
+        var confirmBtn = visibleModal.querySelector('[data-action^="confirm-"]');
+        if (confirmBtn) { e.preventDefault(); confirmBtn.click(); return; }
+      }
+      return;
+    }
+
+    /* Escape — close modal */
+    if (e.key === 'Escape') {
+      var visibleModal = document.querySelector('.modal-overlay[style*="flex"]');
+      if (visibleModal) {
+        var closeBtn = visibleModal.querySelector('[data-action="close-modal"]');
+        if (closeBtn) { e.preventDefault(); closeBtn.click(); return; }
+      }
+      return;
+    }
+
+    /* Ctrl+Shift+1-9 — switch tabs */
+    if (e.ctrlKey && e.shiftKey && e.key >= '1' && e.key <= '9') {
+      e.preventDefault();
+      var tabIndex = parseInt(e.key) - 1;
+      var tabBtns = document.querySelectorAll('.tab-btn');
+      if (tabBtns[tabIndex]) {
+        var tabAction = tabBtns[tabIndex].getAttribute('data-action');
+        var tabName = tabBtns[tabIndex].getAttribute('data-tab');
+        if (tabAction === 'switch-tab' && tabName) {
+          switchTab(tabName);
+        }
+      }
+    }
+  }
+
   function handleChange(e) {
     var el = e.target;
     if (el.id === 'staffSelector') {
       handleStaffChange(el.value);
+      return;
+    }
+    if (el.id === 'fieldFilterInput') {
+      fieldCurrentPage = 1;
+      renderFieldsTable();
       return;
     }
     if (el.id && el.id.startsWith('cat-')) {
@@ -268,6 +324,70 @@
       }
     }
     if (dashProfile) dashProfile.textContent = profile ? profile.name : 'None';
+    updateAnalytics();
+  }
+
+  /* ==================== PHASE 7 — ANALYTICS ==================== */
+
+  async function updateAnalytics() {
+    try {
+      var profiles = await getProfiles();
+      var mappings = 0;
+      for (var i = 0; i < profiles.length; i++) {
+        var m = await loadMapping(profiles[i].id);
+        if (m) mappings += m.length;
+      }
+      document.getElementById('anaProfiles').textContent = profiles.length;
+      document.getElementById('anaMappings').textContent = mappings;
+
+      var logs = await getAuditLogs(500);
+      var today = new Date().toISOString().slice(0, 10);
+      var fillsToday = 0;
+      var totalFills = 0;
+      var ocrRuns = 0;
+      var fillTypes = { fill_fixed: {ok:0,total:0}, fill_ocr: {ok:0,total:0}, fill_customer: {ok:0,total:0}, fill_travel: {ok:0,total:0} };
+
+      for (var i = 0; i < logs.length; i++) {
+        var l = logs[i];
+        if (l.type === 'ocr_run') ocrRuns++;
+        if (l.type === 'fill_fixed' || l.type === 'fill_ocr' || l.type === 'fill_customer' || l.type === 'fill_travel') {
+          totalFills++;
+          if (l.timestamp && l.timestamp.slice(0, 10) === today) fillsToday++;
+        }
+        if (fillTypes[l.type]) {
+          fillTypes[l.type].total++;
+          if (l.fieldsFilled > 0) fillTypes[l.type].ok++;
+        }
+      }
+
+      document.getElementById('anaFillsToday').textContent = fillsToday;
+      document.getElementById('anaTotalFills').textContent = totalFills;
+      document.getElementById('anaOcrRuns').textContent = ocrRuns;
+
+      function rate(t) { return t.total > 0 ? Math.round(t.ok / t.total * 100) + '%' : '-'; }
+      document.getElementById('anaFixedRate').textContent = rate(fillTypes.fill_fixed);
+      document.getElementById('anaOcrFillRate').textContent = rate(fillTypes.fill_ocr);
+      document.getElementById('anaCustomerRate').textContent = rate(fillTypes.fill_customer);
+      document.getElementById('anaTravelRate').textContent = rate(fillTypes.fill_travel);
+
+      /* Recent activity: last 8 logs */
+      var recentBody = document.getElementById('anaRecentBody');
+      var recent = logs.slice(0, 8);
+      if (recent.length === 0) {
+        recentBody.innerHTML = '<tr><td colspan="4" class="empty-state">No recent activity.</td></tr>';
+      } else {
+        recentBody.innerHTML = recent.map(function (l) {
+          var ts = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : '';
+          var staff = getStaffName(l.staffId);
+          var action = getLogTypeLabel(l.type);
+          var result = (l.fieldsFilled || 0) + ' filled';
+          if (l.fieldsFailed > 0) result += ', ' + l.fieldsFailed + ' failed';
+          return '<tr><td>' + escapeHtml(ts) + '</td><td>' + escapeHtml(staff) + '</td><td>' + escapeHtml(action) + '</td><td>' + escapeHtml(result) + '</td></tr>';
+        }).join('');
+      }
+    } catch (e) {
+      debugLog('Analytics update error:', e);
+    }
   }
 
   /* ==================== SCANNER ==================== */
@@ -310,7 +430,45 @@
       return;
     }
 
-    tbody.innerHTML = currentFields.map(function (field, idx) {
+    /* Apply filter */
+    var filterEl = document.getElementById('fieldFilterInput');
+    var filter = filterEl ? filterEl.value.toLowerCase().trim() : '';
+    var filtered = currentFields;
+    if (filter) {
+      filtered = currentFields.filter(function (f) {
+        return (f.label && f.label.toLowerCase().indexOf(filter) !== -1) ||
+               (f.name && f.name.toLowerCase().indexOf(filter) !== -1) ||
+               (f.id && f.id.toLowerCase().indexOf(filter) !== -1) ||
+               (f.fieldType && f.fieldType.toLowerCase().indexOf(filter) !== -1) ||
+               (f.placeholder && f.placeholder.toLowerCase().indexOf(filter) !== -1);
+      });
+    }
+
+    /* Apply pagination */
+    var totalPages = Math.max(1, Math.ceil(filtered.length / fieldPageSize));
+    if (fieldCurrentPage > totalPages) fieldCurrentPage = totalPages;
+    var start = (fieldCurrentPage - 1) * fieldPageSize;
+    var pageItems = filtered.slice(start, start + fieldPageSize);
+
+    /* Show filter on scan */
+    if (filterEl) filterEl.style.display = currentFields.length > 10 ? '' : 'none';
+
+    /* Update pagination controls */
+    var pagEl = document.getElementById('fieldPagination');
+    var prevBtn = document.querySelector('[data-action="field-page-prev"]');
+    var nextBtn = document.querySelector('[data-action="field-page-next"]');
+    var infoEl = document.getElementById('fieldPageInfo');
+    if (pagEl && totalPages > 1) {
+      pagEl.style.display = 'flex';
+      if (infoEl) infoEl.textContent = 'Page ' + fieldCurrentPage + ' of ' + totalPages + ' (' + filtered.length + ' fields)';
+      if (prevBtn) prevBtn.disabled = fieldCurrentPage <= 1;
+      if (nextBtn) nextBtn.disabled = fieldCurrentPage >= totalPages;
+    } else if (pagEl) {
+      pagEl.style.display = 'none';
+    }
+
+    tbody.innerHTML = pageItems.map(function (field, idx) {
+      var globalIdx = start + idx + 1;
       var category = field.category || (field.classification ? field.classification.suggestedCategory : null) || '';
       var badgeClass = getCategoryBadgeClass(category);
       var badgeText = category || 'Unclassified';
@@ -321,7 +479,7 @@
       var needsVerify = field.selectorNeedsVerification || (field.selector && field.selector.confidence < 50);
 
       return '<tr>' +
-        '<td>' + (idx + 1) + '</td>' +
+        '<td>' + globalIdx + '</td>' +
         '<td class="cell-truncate" title="' + escapeHtml(field.label || '') + '">' + escapeHtml(truncate(field.label || '-', 25)) + '</td>' +
         '<td>' + escapeHtml(field.fieldType || '-') + '</td>' +
         '<td class="cell-truncate" title="' + escapeHtml(field.name || '') + '">' + escapeHtml(truncate(field.name || '-', 20)) + '</td>' +
@@ -2519,6 +2677,87 @@
     }
     /* Initial render */
     renderAuditLogs();
+  }
+
+  /* ==================== PHASE 7 — REPORTING ==================== */
+
+  async function generateReportHandler() {
+    try {
+      showLoading(true);
+      var profiles = await getProfiles();
+      var logs = await getAuditLogs(500);
+      var today = new Date().toISOString().slice(0, 10);
+
+      var profileStats = {};
+      for (var i = 0; i < profiles.length; i++) {
+        profileStats[profiles[i].id] = { name: profiles[i].name, fills: 0, succeeded: 0, failed: 0 };
+      }
+
+      var typeCounts = {};
+      var totalFills = 0;
+      var totalFieldsFilled = 0;
+      var totalFieldsFailed = 0;
+
+      for (var i = 0; i < logs.length; i++) {
+        var l = logs[i];
+        if (!typeCounts[l.type]) typeCounts[l.type] = { count: 0, fieldsFilled: 0, fieldsFailed: 0 };
+        typeCounts[l.type].count++;
+        typeCounts[l.type].fieldsFilled += l.fieldsFilled || 0;
+        typeCounts[l.type].fieldsFailed += l.fieldsFailed || 0;
+
+        if (l.type === 'fill_fixed' || l.type === 'fill_ocr' || l.type === 'fill_customer' || l.type === 'fill_travel') {
+          totalFills++;
+          totalFieldsFilled += l.fieldsFilled || 0;
+          totalFieldsFailed += l.fieldsFailed || 0;
+          if (profileStats[l.profileId]) {
+            profileStats[l.profileId].fills++;
+            if (l.fieldsFailed === 0) profileStats[l.profileId].succeeded++;
+            else profileStats[l.profileId].failed++;
+          }
+        }
+      }
+
+      var staffLogs = {};
+      for (var i = 0; i < STAFF_MEMBERS.length; i++) {
+        staffLogs[STAFF_MEMBERS[i].id] = { name: STAFF_MEMBERS[i].name, actions: 0 };
+      }
+      for (var i = 0; i < logs.length; i++) {
+        if (staffLogs[logs[i].staffId]) staffLogs[logs[i].staffId].actions++;
+      }
+
+      var report = {
+        extensionName: 'Alhijra Visa OCR Assistant',
+        version: '1.0.0',
+        reportType: 'fill_activity',
+        generatedAt: new Date().toISOString(),
+        period: { from: logs.length > 0 ? logs[logs.length - 1].timestamp : '-', to: today },
+        summary: {
+          totalProfiles: profiles.length,
+          totalFillOperations: totalFills,
+          totalFieldsFilled: totalFieldsFilled,
+          totalFieldsFailed: totalFieldsFailed,
+          successRate: totalFills > 0 ? Math.round((totalFills - totalFieldsFailed) / totalFills * 100) + '%' : '-',
+          fillsToday: logs.filter(function (l) { return l.timestamp && l.timestamp.slice(0, 10) === today && (l.type === 'fill_fixed' || l.type === 'fill_ocr' || l.type === 'fill_customer' || l.type === 'fill_travel'); }).length
+        },
+        profileStats: Object.keys(profileStats).map(function (id) { return profileStats[id]; }),
+        actionTypeBreakdown: typeCounts,
+        staffActivity: Object.keys(staffLogs).map(function (id) { return staffLogs[id]; })
+      };
+
+      var json = JSON.stringify(report, null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'alhijra-report-' + today + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showMessage('importExportMessage', 'Report downloaded successfully.', 'success');
+    } catch (err) {
+      showMessage('importExportMessage', 'Report generation failed: ' + err.message, 'error');
+    } finally {
+      showLoading(false);
+    }
   }
 
   /* Init OCR on first load */
