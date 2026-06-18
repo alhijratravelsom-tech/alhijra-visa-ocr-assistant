@@ -3,8 +3,8 @@
 **Client:** Alhijra Travel Agency  
 **Website:** [www.alhijratravel.so](https://www.alhijratravel.so)  
 **Email:** info@alhijratravel.so  
-**Version:** 1.0.0 (Phases 1-8)  
-**ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.4 MB, 27 files)
+**Version:** 1.0.0 (Phases 1-9)  
+**ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.4 MB, 28 files)
 
 ## Overview
 
@@ -23,7 +23,7 @@ Alhijra Visa OCR Assistant is a Chrome Extension that helps travel agency staff 
 9. Staff must review all extracted data before filling forms
 10. Only runs on `https://visa.visitsaudi.com/*`
 
-## Phase 1-8 Features
+## Phase 1-9 Features
 
 - **Field Scanner**: Detects all visible form fields (input, select, textarea, checkbox, radio, file)
 - **Field Classification**: Auto-suggests categories based on field labels and attributes
@@ -100,6 +100,19 @@ Alhijra Visa OCR Assistant is a Chrome Extension that helps travel agency staff 
 - **No Firebase SDK**: Uses direct REST API calls via `fetch()` — no extra dependencies, no build step
 - **Firestore Test Mode**: Works with Firestore in test mode (no authentication required)
 - **Minimal Permission**: Only `firestore.googleapis.com` added to `host_permissions`
+
+### Phase 9 Features
+
+- **Real-Time Polling**: Auto-sync checks cloud for updates every 30 seconds (configurable via Settings)
+- **Auto-Pull**: When newer cloud data is detected, it is automatically applied locally
+- **Offline Queue**: Sync operations are queued locally when offline and retried up to 5 times
+- **Conflict Detection**: Compares timestamps between local and cloud data to detect simultaneous edits
+- **Smart Merge**: Combines local and cloud profiles when both have been edited (timestamp-based resolution)
+- **Audit Log Sync**: Fill and OCR activities are automatically synced to `audit_logs` collection in Firestore
+- **Safe Push with Fallback**: Push operations fall back to the offline queue if the network is unavailable
+- **Queue Status Display**: Pending queue count shown in the sync card (e.g., "2 pending operation(s)")
+- **Auto Sync Setting**: Toggle in Settings (Auto Cloud Sync: Yes/No) with live On/Off button in the sync card
+- **Production Security Rules**: `firestore.rules` file included with team-token-based access control
 
 ## Installation
 
@@ -791,7 +804,8 @@ alhijra-visa-ocr-assistant/
 ├── formFiller.js
 ├── mrzParser.js          (Phase 3 - MRZ detection & parsing)
 ├── ocrEngine.js           (Phase 3 - OCR orchestration)
-├── firestore.js           (Phase 8 - Firestore REST API client, sync helpers)
+├── firestore.rules        (Phase 9 - production security rules for Firestore)
+├── firestore.js           (Phase 8/9 - Firestore REST API client, sync, queue, conflict, polling)
 ├── storage.js             (Phase 6 - backup/restore, audit log CRUD, staff CRUD)
 ├── constants.js           (Phase 6 - STAFF_MEMBERS, AUDIT_EVENT_TYPES, new STORAGE_KEYS/DEFAULT_SETTINGS)
 ├── utils.js               (Phase 7 - enhanced formatDate with auto-detect)
@@ -812,7 +826,7 @@ alhijra-visa-ocr-assistant/
 └── README.md
 ```
 
-## Known Limitations (Phases 1-8)
+## Known Limitations (Phases 1-9)
 
 - Dynamic Customer/Travel field auto-fill is NOT implemented (future phases)
 - Does not support iframe fields
@@ -846,16 +860,22 @@ alhijra-visa-ocr-assistant/
 - No conflict resolution — latest push overwrites all cloud data
 - No offline queue — sync fails without internet connection
 - Audit logs are NOT synced to cloud (only local)
+- Real-time sync uses polling (30s) — not true real-time (Firestore onSnapshot requires SDK)
+- Offline queue is stored in chrome.storage.local and does not survive extension uninstall
+- Merge strategy is timestamp-based (last writer wins per field); no field-level diffing
+- Conflict detection compares profile-level timestamps only; individual field conflicts within a profile are not resolved
+- Audit log sync pushes entire log batch — no incremental sync
 
 ## Next Phase Plan
 
-### Phase 9: Real-Time Sync & Production Hardening
-- Firestore security rules for production
-- Real-time listener (onSnapshot) for automatic cross-device sync
-- Sync conflict detection and resolution
-- Offline queue with retry
-- Audit log sync to cloud
-- Performance profiling for large datasets
+### Phase 10: UI/UX Overhaul & Mobile Support
+- Arabic RTL layout improvements
+- Light/Dark theme toggle
+- Mobile-responsive popup design
+- Offline mode indicator
+- Enhanced error reporting with suggestions
+- Field drag-and-drop reordering in mapping
+- Inline field editing in mapping table
 
 ## License
 
