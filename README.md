@@ -3,7 +3,7 @@
 **Client:** Alhijra Travel Agency  
 **Website:** [www.alhijratravel.so](https://www.alhijratravel.so)  
 **Email:** info@alhijratravel.so  
-**Version:** 1.0.0 (Phases 1-9)  
+**Version:** 1.0.0 (Phases 1-10)  
 **ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.4 MB, 28 files)
 
 ## Overview
@@ -113,6 +113,17 @@ Alhijra Visa OCR Assistant is a Chrome Extension that helps travel agency staff 
 - **Queue Status Display**: Pending queue count shown in the sync card (e.g., "2 pending operation(s)")
 - **Auto Sync Setting**: Toggle in Settings (Auto Cloud Sync: Yes/No) with live On/Off button in the sync card
 - **Production Security Rules**: `firestore.rules` file included with team-token-based access control
+
+### Phase 10 Features
+
+- **Dark Theme**: Full dark mode via CSS variables; toggle in Settings (Light/Dark), applies instantly
+- **Enhanced RTL Support**: Comprehensive right-to-left layout for all panels, buttons, tables, and forms for Arabic users
+- **Online/Offline Indicator**: Live status badge in the extension header (Online/Offline with green/red)
+- **Theme & Direction Settings**: New settings controls for theme (Light/Dark) and direction (LTR/RTL)
+- **Drag & Drop Field Reordering**: Reorder mapped fields in the Mapping tab by dragging the handle; order persists
+- **Inline Label Editing**: Click any field label in the Mapping tab to edit it directly (Enter saves, Escape cancels)
+- **Enhanced Error Messages**: Error messages include Arabic suggestions for common issues (connectivity, permissions, storage)
+- **Responsive Layout**: Media queries for narrow popup widths (≤600px), single-column layouts for small screens
 
 ## Installation
 
@@ -688,6 +699,44 @@ Backup files contain staff configuration but do NOT contain passport numbers, cu
 - [ ] Network error shows friendly error message
 - [ ] No authentication required (Firestore test mode)
 
+### Dark Theme & RTL (Phase 10)
+- [ ] Go to Settings, change Theme to "Dark" — entire interface switches to dark theme
+- [ ] All cards, tables, modals, buttons, inputs render correctly in dark theme
+- [ ] Change Theme back to "Light" — returns to light theme
+- [ ] Change Direction to "RTL (Arabic)" — all text and layout reverses to right-to-left
+- [ ] Headers, tables, buttons, forms, filters display correctly in RTL
+- [ ] Change Direction back to "LTR (English)" — returns to normal
+- [ ] Theme and direction settings persist after reopening popup
+
+### Online/Offline Indicator (Phase 10)
+- [ ] Header shows green "Online" badge when internet is connected
+- [ ] Disconnect internet — badge changes to red "Offline"
+- [ ] Reconnect internet — badge returns to "Online"
+
+### Drag & Drop Reordering (Phase 10)
+- [ ] Open Mapping tab with multiple fields
+- [ ] Drag handle (≡) appears on each mapping card
+- [ ] Drag a field card to a new position — order updates
+- [ ] Reordered positions persist after switching tabs and returning
+
+### Inline Label Editing (Phase 10)
+- [ ] In Mapping tab, click a field label — it becomes an editable text input
+- [ ] Type a new label and press Enter — label is saved and input returns to text
+- [ ] Press Escape during editing — reverts to original label
+- [ ] Click outside the input (blur) — label is saved
+- [ ] Edited label persists after reopening popup
+
+### Enhanced Error Messages (Phase 10)
+- [ ] Disconnect internet and try Cloud Sync — error message includes connectivity suggestion
+- [ ] Try to use extension on non-target domain — error includes helpful Arabic text
+
+### Responsive Layout (Phase 10)
+- [ ] Resize popup to narrow width (≤600px) — layout switches to single column
+- [ ] All buttons stack vertically
+- [ ] Dashboard cards stack in single column
+- [ ] Tab labels remain readable
+- [ ] Import/Export grid switches to single column
+
 ### Enhanced Date Handling (Phase 7)
 - [ ] Set Date Fill Mode to "Auto (detect from element)"
 - [ ] Map a date field with placeholder "DD/MM/YYYY" — fill uses DD/MM/YYYY format
@@ -807,8 +856,8 @@ alhijra-visa-ocr-assistant/
 ├── firestore.rules        (Phase 9 - production security rules for Firestore)
 ├── firestore.js           (Phase 8/9 - Firestore REST API client, sync, queue, conflict, polling)
 ├── storage.js             (Phase 6 - backup/restore, audit log CRUD, staff CRUD)
-├── constants.js           (Phase 6 - STAFF_MEMBERS, AUDIT_EVENT_TYPES, new STORAGE_KEYS/DEFAULT_SETTINGS)
-├── utils.js               (Phase 7 - enhanced formatDate with auto-detect)
+├── constants.js           (Phase 6/10 - STAFF_MEMBERS, AUDIT_EVENT_TYPES, STORAGE_KEYS, DEFAULT_SETTINGS with theme/direction)
+├── utils.js               (Phase 7 - enhanced formatDate with auto-detect, helpers)
 ├── download-lang-data.ps1   (script in libs/ to download eng.traineddata)
 ├── libs/
 │   ├── tesseract.min.js          (Phase 3 - Tesseract.js browser bundle)
@@ -826,7 +875,7 @@ alhijra-visa-ocr-assistant/
 └── README.md
 ```
 
-## Known Limitations (Phases 1-9)
+## Known Limitations (Phases 1-10)
 
 - Dynamic Customer/Travel field auto-fill is NOT implemented (future phases)
 - Does not support iframe fields
@@ -865,17 +914,22 @@ alhijra-visa-ocr-assistant/
 - Merge strategy is timestamp-based (last writer wins per field); no field-level diffing
 - Conflict detection compares profile-level timestamps only; individual field conflicts within a profile are not resolved
 - Audit log sync pushes entire log batch — no incremental sync
+- Dark theme does not persist across popup sessions if settings are cleared
+- Inline editing only supports label text; category/source/notes remain separate controls
+- Drag-and-drop reorder is limited to the current scan session; re-scanning resets order
+- Offline indicator uses browser `navigator.onLine` which may not reflect true Firestore connectivity
+- Responsive layout is optimized for popup widths ≥ 400px; below that some elements may overflow
+- RTL support covers major layout elements but some third-party or dynamically generated content may not reverse
 
 ## Next Phase Plan
 
-### Phase 10: UI/UX Overhaul & Mobile Support
-- Arabic RTL layout improvements
-- Light/Dark theme toggle
-- Mobile-responsive popup design
-- Offline mode indicator
-- Enhanced error reporting with suggestions
-- Field drag-and-drop reordering in mapping
-- Inline field editing in mapping table
+### Phase 11: Testing Infrastructure & CI/CD
+- Automated test suite (unit + integration)
+- Chrome extension packaging workflow
+- GitHub Actions CI pipeline
+- ESLint configuration and code quality checks
+- Performance benchmarking
+- Bug tracking and release versioning
 
 ## License
 
