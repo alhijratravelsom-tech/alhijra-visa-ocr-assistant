@@ -25,7 +25,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://visa.visitsaudi.com/*"
+    "https://visa.visitsaudi.com/*",
+    "https://firestore.googleapis.com/*"
   ],
   "content_scripts": [
     {

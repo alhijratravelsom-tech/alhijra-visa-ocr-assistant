@@ -788,6 +788,23 @@ body {
 .ie-card-report h3 {
   color: var(--gold-dark);
 }
+.ie-card-sync {
+  border-color: var(--success);
+}
+.ie-card-sync h3 {
+  color: var(--success);
+}
+.sync-status {
+  margin-bottom: 8px;
+}
+.sync-status-text {
+  font-size: 12px;
+  color: var(--gray-600);
+}
+.sync-actions {
+  display: flex;
+  gap: 8px;
+}
 
 /* Settings Tab */
 .settings-form {

@@ -160,6 +160,8 @@
       /* Phase 6 */
       case 'create-backup': createBackupHandler(); break;
       case 'generate-report': generateReportHandler(); break;
+      case 'sync-push': syncPushHandler(); break;
+      case 'sync-pull': syncPullHandler(); break;
       case 'restore-backup-trigger': document.getElementById('restoreFileInput').click(); break;
       case 'logs-refresh': renderAuditLogs(); break;
       case 'logs-export': exportAuditLogs(); break;
@@ -2677,6 +2679,43 @@
     }
     /* Initial render */
     renderAuditLogs();
+  }
+
+  /* ==================== PHASE 8 — CLOUD SYNC ==================== */
+
+  async function syncPushHandler() {
+    try {
+      showLoading(true);
+      var result = await fsPushFullSync();
+      var statusEl = document.getElementById('syncLastStatus');
+      if (statusEl) statusEl.textContent = 'Last sync: ' + new Date(result.lastSyncedAt).toLocaleString() + ' (' + result.profiles.length + ' profiles)';
+      showMessage('importExportMessage', 'Data synced to cloud successfully.', 'success');
+    } catch (err) {
+      showMessage('importExportMessage', 'Sync failed: ' + err.message, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  async function syncPullHandler() {
+    try {
+      showLoading(true);
+      var syncData = await fsPullFullSync();
+      if (!syncData) {
+        showMessage('importExportMessage', 'No cloud data found. Push data first.', 'warning');
+        return;
+      }
+      if (!confirm('This will replace all local data with cloud data. Continue?')) return;
+      await fsApplySync(syncData);
+      await loadInitialData();
+      var statusEl = document.getElementById('syncLastStatus');
+      if (statusEl) statusEl.textContent = 'Last pulled: ' + (syncData.lastSyncedAt ? new Date(syncData.lastSyncedAt).toLocaleString() : 'unknown');
+      showMessage('importExportMessage', 'Data restored from cloud successfully.', 'success');
+    } catch (err) {
+      showMessage('importExportMessage', 'Pull failed: ' + err.message, 'error');
+    } finally {
+      showLoading(false);
+    }
   }
 
   /* ==================== PHASE 7 — REPORTING ==================== */

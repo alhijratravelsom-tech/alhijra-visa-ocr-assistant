@@ -256,6 +256,17 @@
         <p>Download a fill activity report with per-profile stats and success rates.</p>
         <button data-action="generate-report" class="btn btn-outline">Download Report JSON</button>
       </div>
+      <div class="ie-card ie-card-sync">
+        <h3>Cloud Sync (Firestore)</h3>
+        <p>Sync all data across devices via Firebase. Requires internet connection.</p>
+        <div class="sync-status">
+          <span id="syncLastStatus" class="sync-status-text">Not synced yet</span>
+        </div>
+        <div class="sync-actions">
+          <button data-action="sync-push" class="btn btn-primary">Push to Cloud</button>
+          <button data-action="sync-pull" class="btn btn-secondary">Pull from Cloud</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -959,6 +970,7 @@
   <script src="classifier.js"></script>
   <script src="fieldScanner.js"></script>
   <script src="storage.js"></script>
+  <script src="firestore.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
