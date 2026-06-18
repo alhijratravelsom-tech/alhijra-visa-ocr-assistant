@@ -161,9 +161,6 @@
       /* Phase 6 */
       case 'create-backup': createBackupHandler(); break;
       case 'generate-report': generateReportHandler(); break;
-      case 'sync-push': syncPushHandler(); break;
-      case 'sync-pull': syncPullHandler(); break;
-      case 'sync-toggle-auto': syncToggleAutoHandler(); break;
       case 'restore-backup-trigger': document.getElementById('restoreFileInput').click(); break;
       case 'logs-refresh': renderAuditLogs(); break;
       case 'logs-export': exportAuditLogs(); break;
@@ -1108,8 +1105,6 @@
     if (ctf) ctf.value = currentSettings.confirmBeforeTravelFill !== false ? 'true' : 'false';
     var cdr = document.getElementById('settingConfirmBeforeDocReview');
     if (cdr) cdr.value = currentSettings.confirmBeforeDocumentReview !== false ? 'true' : 'false';
-    var as = document.getElementById('settingAutoSync');
-    if (as) as.value = currentSettings.autoSync ? 'true' : 'false';
     var th = document.getElementById('settingTheme');
     if (th) th.value = currentSettings.theme || 'light';
     var dr = document.getElementById('settingDirection');
@@ -1128,7 +1123,6 @@
       confirmBeforeCustomerFill: document.getElementById('settingConfirmBeforeCustomerFill') ? document.getElementById('settingConfirmBeforeCustomerFill').value === 'true' : true,
       confirmBeforeTravelFill: document.getElementById('settingConfirmBeforeTravelFill') ? document.getElementById('settingConfirmBeforeTravelFill').value === 'true' : true,
       confirmBeforeDocumentReview: document.getElementById('settingConfirmBeforeDocReview') ? document.getElementById('settingConfirmBeforeDocReview').value === 'true' : true,
-      autoSync: document.getElementById('settingAutoSync') ? document.getElementById('settingAutoSync').value === 'true' : false,
       theme: document.getElementById('settingTheme') ? document.getElementById('settingTheme').value : 'light',
       direction: document.getElementById('settingDirection') ? document.getElementById('settingDirection').value : 'ltr'
     };
@@ -1276,7 +1270,6 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
-      trySyncAuditLogs();
       showFillResultModal(result.result);
     } catch (err) {
       showMessage('dashMessage', 'Fill failed: ' + err.message, 'error');
@@ -1911,7 +1904,6 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
-      trySyncAuditLogs();
       showDynamicFillResultModal(result.result);
     } catch (err) {
       showMessage('dashMessage', 'Dynamic fill failed: ' + err.message, 'error');
@@ -2147,7 +2139,6 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
-      trySyncAuditLogs();
       trySaveCustomerFillResult(result.result);
       showCustomerFillResultModal(result.result);
     } catch (err) {
@@ -2400,7 +2391,6 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
-      trySyncAuditLogs();
       trySaveTravelFillResult(result.result);
       showTravelFillResultModal(result.result);
     } catch (err) {
@@ -2759,156 +2749,12 @@
     if (dirEl) dirEl.value = currentSettings.direction || 'ltr';
   }
 
-  function initOfflineIndicator() {
-    function updateBadge() {
-      var badge = document.getElementById('offlineBadge');
-      if (!badge) return;
-      if (navigator.onLine) {
-        badge.textContent = 'Online';
-        badge.className = 'offline-badge online';
-      } else {
-        badge.textContent = 'Offline';
-        badge.className = 'offline-badge offline';
-      }
-    }
-    updateBadge();
-    window.addEventListener('online', updateBadge);
-    window.addEventListener('offline', updateBadge);
-  }
-
   function enhanceErrorMessage(msg) {
-    if (msg.indexOf('Firestore') !== -1) return msg + ' — تحقق من اتصال الإنترنت أو إعدادات Firebase';
     if (msg.indexOf('network') !== -1 || msg.indexOf('fetch') !== -1) return msg + ' — تأكد من اتصال الإنترنت';
     if (msg.indexOf('permission') !== -1 || msg.indexOf('403') !== -1) return msg + ' — تحقق من صلاحيات الإضافة';
     if (msg.indexOf('content script') !== -1 || msg.indexOf('connect') !== -1) return msg + ' — أعد تحميل الصفحة ثم حاول مجدداً';
     if (msg.indexOf('storage') !== -1) return msg + ' — حاول مسح البيانات من Import/Export ثم أعد المحاولة';
     return msg;
-  }
-
-  /* ==================== PHASE 8 — CLOUD SYNC ==================== */
-
-  async function syncPushHandler() {
-    try {
-      showLoading(true);
-      var result = await fsPushFullSync();
-      var statusEl = document.getElementById('syncLastStatus');
-      if (statusEl) statusEl.textContent = 'Last sync: ' + new Date(result.lastSyncedAt).toLocaleString() + ' (' + result.profiles.length + ' profiles)';
-      showMessage('importExportMessage', 'Data synced to cloud successfully.', 'success');
-    } catch (err) {
-      showMessage('importExportMessage', 'Sync failed: ' + err.message, 'error');
-    } finally {
-      showLoading(false);
-    }
-  }
-
-  async function syncPullHandler() {
-    try {
-      showLoading(true);
-      var syncData = await fsPullFullSync();
-      if (!syncData) {
-        showMessage('importExportMessage', 'No cloud data found. Push data first.', 'warning');
-        return;
-      }
-      if (!confirm('This will replace all local data with cloud data. Continue?')) return;
-      await fsApplySync(syncData);
-      await loadInitialData();
-      var statusEl = document.getElementById('syncLastStatus');
-      if (statusEl) statusEl.textContent = 'Last pulled: ' + (syncData.lastSyncedAt ? new Date(syncData.lastSyncedAt).toLocaleString() : 'unknown');
-      showMessage('importExportMessage', 'Data restored from cloud successfully.', 'success');
-    } catch (err) {
-      showMessage('importExportMessage', 'Pull failed: ' + err.message, 'error');
-    } finally {
-      showLoading(false);
-    }
-  }
-
-  /* ==================== PHASE 9 — SYNC ENHANCEMENTS ==================== */
-
-  function syncToggleAutoHandler() {
-    var btn = document.getElementById('syncAutoToggle');
-    var isOn = currentSettings.autoSync;
-    currentSettings.autoSync = !isOn;
-    saveSettings(currentSettings);
-    if (currentSettings.autoSync) {
-      btn.textContent = 'Auto: On';
-      btn.className = 'btn btn-sm btn-primary';
-      fsStartPolling(30000);
-      fsSetSyncCallback(syncAutoUpdateCallback);
-      updateSyncQueueStatus();
-    } else {
-      btn.textContent = 'Auto: Off';
-      btn.className = 'btn btn-sm btn-outline';
-      fsStopPolling();
-    }
-  }
-
-  function syncAutoUpdateCallback(update) {
-    if (update.type === 'auto_pull') {
-      var statusEl = document.getElementById('syncLastStatus');
-      if (statusEl) statusEl.textContent = 'Auto-synced: ' + new Date(update.timestamp).toLocaleString();
-      loadInitialData();
-    }
-  }
-
-  async function updateSyncQueueStatus() {
-    try {
-      var status = await fsGetQueueStatus();
-      var el = document.getElementById('syncQueueStatus');
-      if (el) {
-        if (status.pending > 0) {
-          el.textContent = status.pending + ' pending operation(s)';
-          el.style.display = '';
-        } else {
-          el.style.display = 'none';
-        }
-      }
-    } catch (e) {}
-  }
-
-  /* Override existing syncPushHandler to use safe push with queue fallback */
-  var _originalSyncPush = syncPushHandler;
-  syncPushHandler = async function () {
-    try {
-      showLoading(true);
-      var result = await fsSafePush();
-      if (result.success) {
-        var statusEl = document.getElementById('syncLastStatus');
-        if (statusEl) statusEl.textContent = 'Last sync: ' + new Date(result.result.lastSyncedAt).toLocaleString() + ' (' + result.result.profiles.length + ' profiles)';
-        showMessage('importExportMessage', 'Data synced to cloud successfully.', 'success');
-        /* Sync audit logs after push */
-        fsSafeSyncAuditLogs();
-      } else if (result.queued) {
-        showMessage('importExportMessage', 'Sync queued — will retry when online.', 'warning');
-      } else {
-        showMessage('importExportMessage', 'Sync failed: ' + result.error, 'error');
-      }
-      updateSyncQueueStatus();
-    } catch (err) {
-      showMessage('importExportMessage', 'Sync failed: ' + err.message, 'error');
-    } finally {
-      showLoading(false);
-    }
-  };
-
-  /* Integrate audit log sync into fill operations */
-  function trySyncAuditLogs() {
-    if (currentSettings.autoSync) {
-      fsSafeSyncAuditLogs().then(function () { updateSyncQueueStatus(); });
-    }
-  }
-
-  /* Init auto-sync on load */
-  function initPhase9() {
-    var btn = document.getElementById('syncAutoToggle');
-    if (btn) {
-      btn.textContent = currentSettings.autoSync ? 'Auto: On' : 'Auto: Off';
-      btn.className = currentSettings.autoSync ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
-      if (currentSettings.autoSync) {
-        fsStartPolling(30000);
-        fsSetSyncCallback(syncAutoUpdateCallback);
-      }
-    }
-    updateSyncQueueStatus();
   }
 
   /* ==================== PHASE 7 — REPORTING ==================== */
@@ -3040,11 +2886,7 @@
   /* Init Phase 6 */
   initPhase6();
 
-  /* Init Phase 9 */
-  initPhase9();
-
   /* Init Phase 10 */
   initThemeAndDirection();
-  initOfflineIndicator();
 
 })();

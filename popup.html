@@ -34,7 +34,6 @@
             <option value="staff5">Staff 5</option>
           </select>
         </span>
-        <span id="offlineBadge" class="offline-badge online">Online</span>
       </div>
     </header>
 
@@ -45,6 +44,7 @@
       <button class="tab-btn" data-action="switch-tab" data-tab="mapping">Mapping</button>
       <button class="tab-btn" data-action="switch-tab" data-tab="profiles">Profiles</button>
       <button class="tab-btn" data-action="switch-tab" data-tab="import-export">I/E</button>
+      <button class="tab-btn" data-action="switch-tab" data-tab="backup">Backup</button>
       <button class="tab-btn" data-action="switch-tab" data-tab="settings">Settings</button>
       <button class="tab-btn ocr-tab-btn" data-action="switch-tab" data-tab="passport-ocr">Passport OCR</button>
       <button class="tab-btn" data-action="switch-tab" data-tab="customer">Customer</button>
@@ -257,21 +257,29 @@
         <p>Download a fill activity report with per-profile stats and success rates.</p>
         <button data-action="generate-report" class="btn btn-outline">Download Report JSON</button>
       </div>
-      <div class="ie-card ie-card-sync">
-        <h3>Cloud Sync (Firestore)</h3>
-        <p>Sync all data across devices via Firebase. Requires internet connection.</p>
-        <div class="sync-status">
-          <span id="syncLastStatus" class="sync-status-text">Not synced yet</span>
-          <span id="syncQueueStatus" class="sync-queue-text" style="display:none;"></span>
-        </div>
-        <div class="sync-actions">
-          <button data-action="sync-push" class="btn btn-primary">Push to Cloud</button>
-          <button data-action="sync-pull" class="btn btn-secondary">Pull from Cloud</button>
-          <button id="syncAutoToggle" data-action="sync-toggle-auto" class="btn btn-sm btn-outline">Auto: Off</button>
-        </div>
-      </div>
     </div>
   </section>
+
+    <!-- Backup Tab -->
+    <section id="tab-backup" class="tab-content">
+      <div class="section-header">
+        <h2>Backup &amp; Restore</h2>
+      </div>
+      <div id="backupMessage" class="status-message"></div>
+      <div class="backup-grid">
+        <div class="ie-card">
+          <h3>Create Full Backup</h3>
+          <p>Download a complete backup of all profiles, mappings, settings, staff, and audit logs.</p>
+          <button data-action="create-backup" class="btn btn-primary">Download Backup</button>
+        </div>
+        <div class="ie-card ie-card-restore">
+          <h3>Restore from Backup</h3>
+          <p>Restore all data from a previous backup file. This will replace current data.</p>
+          <input type="file" id="restoreFileInput" accept=".json" tabindex="-1">
+          <button data-action="restore-backup-trigger" class="btn btn-secondary">Restore from Backup</button>
+        </div>
+      </div>
+    </section>
 
     <!-- Settings Tab -->
     <section id="tab-settings" class="tab-content">
@@ -355,13 +363,6 @@
           <label>Confirm Before Document Review</label>
           <select id="settingConfirmBeforeDocReview" class="select-field">
             <option value="true">Yes</option>
-            <option value="false">No</option>
-          </select>
-        </div>
-        <div class="setting-row">
-          <label>Auto Cloud Sync</label>
-          <select id="settingAutoSync" class="select-field">
-            <option value="true">Yes (poll every 30s)</option>
             <option value="false">No</option>
           </select>
         </div>
@@ -994,7 +995,6 @@
   <script src="classifier.js"></script>
   <script src="fieldScanner.js"></script>
   <script src="storage.js"></script>
-  <script src="firestore.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

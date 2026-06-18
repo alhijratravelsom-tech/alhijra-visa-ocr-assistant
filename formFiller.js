@@ -1,3 +1,43 @@
+var FORBIDDEN_PATTERNS = [
+  'captcha', 'recaptcha', 'hcaptcha', 'turnstile',
+  'otp', 'one-time', 'onetime', 'verification', 'verify',
+  'password', 'passwd', 'pwd',
+  'card', 'credit', 'debit', 'cvv', 'cvc', 'ccv',
+  'payment', 'pay', 'checkout', 'submit',
+  'pin', 'security', 'secret', 'token', 'auth'
+];
+
+function isForbiddenField(element, fieldMapping) {
+  var checkStr = '';
+  if (element) {
+    checkStr += ' ' + (element.id || '');
+    checkStr += ' ' + (element.name || '');
+    checkStr += ' ' + (element.className || '');
+    checkStr += ' ' + (element.getAttribute('placeholder') || '');
+    checkStr += ' ' + (element.getAttribute('aria-label') || '');
+    checkStr += ' ' + (element.getAttribute('autocomplete') || '');
+    checkStr += ' ' + (element.type || '');
+    var parent = element.parentElement;
+    if (parent) {
+      checkStr += ' ' + (parent.id || '') + ' ' + (parent.className || '');
+    }
+  }
+  if (fieldMapping) {
+    checkStr += ' ' + (fieldMapping.label || '');
+    checkStr += ' ' + (fieldMapping.source || '');
+    checkStr += ' ' + (fieldMapping.category || '');
+  }
+  checkStr = checkStr.toLowerCase();
+  for (var i = 0; i < FORBIDDEN_PATTERNS.length; i++) {
+    if (checkStr.indexOf(FORBIDDEN_PATTERNS[i]) !== -1) return true;
+  }
+  if (element && element.type) {
+    var t = element.type.toLowerCase();
+    if (t === 'submit' || t === 'button' || t === 'reset' || t === 'image') return true;
+  }
+  return false;
+}
+
 function setNativeValue(element, value) {
   var valueSetter = Object.getOwnPropertyDescriptor(element, 'value') ? Object.getOwnPropertyDescriptor(element, 'value').set : null;
   var prototype = Object.getPrototypeOf(element);
@@ -216,6 +256,11 @@ function fillField(fieldMapping) {
     return result;
   }
 
+  if (isForbiddenField(element, fieldMapping)) {
+    result.reason = 'Forbidden field type: cannot auto-fill CAPTCHA, payment, password, or submit fields';
+    return result;
+  }
+
   var tag = element.tagName.toLowerCase();
   var type = (element.getAttribute('type') || 'text').toLowerCase();
   var value = String(fieldMapping.defaultValue).trim();
@@ -379,6 +424,11 @@ function fillDynamicOcrField(fieldMapping, passportData, settings) {
     return result;
   }
 
+  if (isForbiddenField(element, fieldMapping)) {
+    result.reason = 'Forbidden field type: cannot auto-fill CAPTCHA, payment, password, or submit fields';
+    return result;
+  }
+
   var tag = element.tagName.toLowerCase();
   var type = (element.getAttribute('type') || 'text').toLowerCase();
 
@@ -539,6 +589,11 @@ function fillDynamicCustomerField(fieldMapping, customerData, settings) {
     return result;
   }
 
+  if (isForbiddenField(element, fieldMapping)) {
+    result.reason = 'Forbidden field type: cannot auto-fill CAPTCHA, payment, password, or submit fields';
+    return result;
+  }
+
   var tag = element.tagName.toLowerCase();
   var type = (element.getAttribute('type') || 'text').toLowerCase();
 
@@ -679,6 +734,11 @@ function fillDynamicTravelField(fieldMapping, travelData, settings) {
 
   if (!isElementVisibleForFill(element)) {
     result.reason = 'Element is not visible';
+    return result;
+  }
+
+  if (isForbiddenField(element, fieldMapping)) {
+    result.reason = 'Forbidden field type: cannot auto-fill CAPTCHA, payment, password, or submit fields';
     return result;
   }
 

@@ -41,11 +41,13 @@ var MrzParser = {
         if (i >= numericRanges[r].start && i < numericRanges[r].end) { isNumeric = true; break; }
       }
       if (isNumeric) {
-        if (chars[i] === 'O' || chars[i] === 'Q') chars[i] = '0';
-        else if (chars[i] === 'I' || chars[i] === 'L') chars[i] = '1';
-        else if (chars[i] === 'S') chars[i] = '5';
+        if (chars[i] === 'O' || chars[i] === 'Q' || chars[i] === 'D') chars[i] = '0';
+        else if (chars[i] === 'I' || chars[i] === 'L' || chars[i] === '|' || chars[i] === '!') chars[i] = '1';
+        else if (chars[i] === 'S' || chars[i] === '$') chars[i] = '5';
         else if (chars[i] === 'B') chars[i] = '8';
         else if (chars[i] === 'Z') chars[i] = '2';
+        else if (chars[i] === 'G') chars[i] = '6';
+        else if (chars[i] === 'U') chars[i] = '0';
       }
     }
     return chars.join('');
@@ -75,7 +77,7 @@ var MrzParser = {
       var l1 = cleaned[i];
       var l2 = cleaned[i + 1];
       if (l1.length >= 40 && l1.length <= 50 && l2.length >= 40 && l2.length <= 50) {
-        if ((l1.indexOf('P<') === 0 || l1.indexOf('P') === 0) && l2.indexOf('<') >= 8) {
+        if ((l1.indexOf('P<') === 0 || l1.indexOf('P') === 0 || l1.indexOf('P<') === 0) && l2.indexOf('<') >= 8) {
           return { line1: this.padMRZLine(l1), line2: this.padMRZLine(l2), rawLine1: rawLines[i], rawLine2: rawLines[i + 1] };
         }
       }
@@ -112,6 +114,17 @@ var MrzParser = {
       var fl2 = full.substring(split);
       if (fl1.length >= 35 && fl2.length >= 35) {
         return { line1: this.padMRZLine(fl1), line2: this.padMRZLine(fl2), rawLine1: rawText, rawLine2: '' };
+      }
+    }
+
+    for (var m = 0; m < cleaned.length - 1; m++) {
+      var c1 = cleaned[m];
+      var c2 = cleaned[m + 1];
+      if (c1.length >= 44 && c2.length >= 44) {
+        var isTD3 = (c1.indexOf('P') === 0 || c1.indexOf('P<') === 0) && (c2.indexOf('<') !== -1);
+        if (isTD3) {
+          return { line1: this.padMRZLine(c1), line2: this.padMRZLine(c2), rawLine1: rawLines[m], rawLine2: rawLines[m + 1] };
+        }
       }
     }
 
@@ -216,7 +229,9 @@ var MrzParser = {
     } else {
       fullYear = 2000 + yy;
     }
-    return String(fullYear) + '-' + mm + '-' + dd;
+    var result = String(fullYear) + '-' + mm + '-' + dd;
+    if (isNaN(fullYear) || fullYear < 1900 || fullYear > 2100) return '';
+    return result;
   },
 
   computeCheckDigit: function (str) {

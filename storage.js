@@ -176,15 +176,41 @@ async function exportCurrentScan() {
 
 /* ==================== PHASE 6 — AUDIT LOG ==================== */
 
+/* Sanitize audit log entry to remove any sensitive data */
+function sanitizeAuditLog(entry) {
+  var sanitized = { ...entry };
+  var sensitiveKeys = [
+    'passportNumber', 'firstName', 'middleName', 'lastName', 'fullName',
+    'nationality', 'countryCode', 'dateOfBirth', 'gender', 'passportExpiryDate',
+    'issuingCountry', 'documentType', 'mrzLines', 'mrzLine1', 'mrzLine2',
+    'checkDigit', 'ocrConfidence', 'ocrRawText', 'phoneNumber', 'email',
+    'address', 'occupation', 'maritalStatus', 'emergencyContact', 'customerNotes',
+    'arrivalDate', 'departureDate', 'flightNumber', 'departureCity', 'arrivalCity',
+    'hotelName', 'hotelAddress', 'stayDuration', 'packageName',
+    'passportImage', 'personalPhoto', 'hotelBooking', 'flightTicket',
+    'insuranceDocument', 'invitationLetter', 'otherDocument',
+    'value', 'fieldValue', 'defaultValue'
+  ];
+  for (var i = 0; i < sensitiveKeys.length; i++) {
+    var key = sensitiveKeys[i];
+    if (sanitized.hasOwnProperty(key)) delete sanitized[key];
+  }
+  if (sanitized.extra && typeof sanitized.extra === 'string') {
+    sanitized.extra = sanitized.extra.substring(0, 200);
+  }
+  return sanitized;
+}
+
 async function addAuditLogEntry(entry) {
   try {
     var logs = await loadFromStorage(STORAGE_KEYS.AUDIT_LOG) || [];
-    entry.id = 'log_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-    entry.timestamp = entry.timestamp || new Date().toISOString();
-    logs.push(entry);
+    var sanitizedEntry = sanitizeAuditLog(entry);
+    sanitizedEntry.id = 'log_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    sanitizedEntry.timestamp = sanitizedEntry.timestamp || new Date().toISOString();
+    logs.push(sanitizedEntry);
     if (logs.length > 500) logs = logs.slice(-500);
     await saveToStorage(STORAGE_KEYS.AUDIT_LOG, logs);
-    return entry;
+    return sanitizedEntry;
   } catch (e) {}
 }
 

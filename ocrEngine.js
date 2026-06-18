@@ -25,7 +25,7 @@ var OcrEngine = {
   verifyFiles: function () {
     var missing = [];
     if (typeof Tesseract === 'undefined') missing.push('tesseract.min.js');
-    if (this.workerPath && !this._checkFileExistsSync) {
+    if (this.workerPath) {
       try {
         var xhr = new XMLHttpRequest();
         xhr.open('HEAD', this.workerPath, false);
@@ -46,6 +46,32 @@ var OcrEngine = {
       }
     }
     this._verified = true;
+    return missing;
+  },
+
+  _checkLocalFile: function (url) {
+    return new Promise(function (resolve) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('HEAD', url, true);
+      xhr.onload = function () { resolve(xhr.status < 400); };
+      xhr.onerror = function () { resolve(false); };
+      xhr.send();
+    });
+  },
+
+  ensureFilesAvailable: async function () {
+    this.init();
+    var missing = [];
+    if (typeof Tesseract === 'undefined') missing.push('tesseract.min.js');
+
+    if (this.workerPath) {
+      var hasWorker = await this._checkLocalFile(this.workerPath);
+      if (!hasWorker) missing.push('worker.min.js');
+    }
+    if (this.langPath) {
+      var hasLang = await this._checkLocalFile(this.langPath + 'eng.traineddata');
+      if (!hasLang) missing.push('eng.traineddata in libs/lang-data/');
+    }
     return missing;
   },
 
@@ -137,15 +163,13 @@ var OcrEngine = {
 
     this.init();
 
-    if (!this._verified) {
-      var missingFiles = this.verifyFiles();
-      if (missingFiles.length > 0) {
-        this.isRunning = false;
-        if (callbacks && callbacks.onError) {
-          callbacks.onError('OCR language data is missing. Please add eng.traineddata inside libs/lang-data/. Run libs/download-lang-data.ps1 to download it automatically.');
-        }
-        return;
+    var missingFiles = await this.ensureFilesAvailable();
+    if (missingFiles.length > 0) {
+      this.isRunning = false;
+      if (callbacks && callbacks.onError) {
+        callbacks.onError('OCR language data is missing. Please add eng.traineddata inside libs/lang-data/. Run libs/download-lang-data.ps1 to download it automatically.');
       }
+      return;
     }
 
     this.isRunning = true;
