@@ -3,8 +3,8 @@
 **Client:** Alhijra Travel Agency  
 **Website:** [www.alhijratravel.so](https://www.alhijratravel.so)  
 **Email:** info@alhijratravel.so  
-**Version:** 1.0.0 (Phases 1-7)  
-**ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.5 MB, 26 files)
+**Version:** 1.0.0 (Phases 1-8)  
+**ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.4 MB, 27 files)
 
 ## Overview
 
@@ -23,7 +23,7 @@ Alhijra Visa OCR Assistant is a Chrome Extension that helps travel agency staff 
 9. Staff must review all extracted data before filling forms
 10. Only runs on `https://visa.visitsaudi.com/*`
 
-## Phase 1-7 Features
+## Phase 1-8 Features
 
 - **Field Scanner**: Detects all visible form fields (input, select, textarea, checkbox, radio, file)
 - **Field Classification**: Auto-suggests categories based on field labels and attributes
@@ -90,6 +90,16 @@ Alhijra Visa OCR Assistant is a Chrome Extension that helps travel agency staff 
 - **Keyboard Shortcuts**: Ctrl+Enter to confirm modal actions, Escape to close modals, Ctrl+Shift+1–9 to switch between tabs
 - **Enhanced Date Handling**: Auto-detection of date format from input placeholder; new formats: DD.MM.YYYY, DD-MM-YYYY, YYYY/MM/DD, YYYY.MM.DD
 - **Smarter Date Auto Mode**: Date Fill Mode "Auto" now inspects the element's placeholder text to guess the expected format before falling back to YYYY-MM-DD
+
+### Phase 8 Features
+
+- **Cloud Sync (Firestore)**: Push all profiles, mappings, settings, active profile, and staff members to Firebase Firestore via REST API
+- **Push to Cloud**: Upload current configuration from Import/Export tab with one click
+- **Pull from Cloud**: Download and apply cloud configuration to another device with confirmation prompt
+- **History Tracking**: Each push creates a history entry in `sync_history` collection with timestamp and counts
+- **No Firebase SDK**: Uses direct REST API calls via `fetch()` — no extra dependencies, no build step
+- **Firestore Test Mode**: Works with Firestore in test mode (no authentication required)
+- **Minimal Permission**: Only `firestore.googleapis.com` added to `host_permissions`
 
 ## Installation
 
@@ -227,6 +237,30 @@ If the lang data is missing, Tesseract.js will attempt to download it. For fully
 
 ### Privacy Note
 Backup files contain staff configuration but do NOT contain passport numbers, customer data, travel data, or document content. Only field metadata and configurations are backed up.
+
+## Cloud Sync (Phase 8)
+
+### Prerequisites
+1. A Firebase project must be created (see Installation section)
+2. Firestore Database must be in test mode
+3. Internet connection required
+
+### Push to Cloud
+1. Go to **Import/Export** tab
+2. In the **Cloud Sync (Firestore)** card, click **Push to Cloud**
+3. All profiles, mappings, settings, staff, and active profile are uploaded
+4. Status shows "Last sync: [timestamp] (X profiles)"
+
+### Pull from Cloud
+1. On a different device, go to **Import/Export** tab
+2. Click **Pull from Cloud**
+3. A confirmation warns: "This will replace all local data with cloud data."
+4. On confirm, all cloud data is applied locally
+5. The popup refreshes with synced data
+
+### Security Note
+- Currently uses Firestore test mode (no authentication) — all data is readable/writable by anyone with the API key
+- For production, restrict Firestore rules to specific IPs or add a secret team token
 
 ## Audit Logs (Phase 6)
 
@@ -629,6 +663,18 @@ Backup files contain staff configuration but do NOT contain passport numbers, cu
 - [ ] Press Ctrl+Shift+2 — switches to Scanner tab
 - [ ] Press Ctrl+Shift+3 through 9 — switch to corresponding tabs
 
+### Cloud Sync (Phase 8)
+- [ ] Import/Export tab shows "Cloud Sync (Firestore)" card
+- [ ] Click **Push to Cloud** — status updates with "Last sync: [time] (X profiles)"
+- [ ] Click **Push to Cloud** again — status updates with new timestamp
+- [ ] On a different device/incognito, click **Pull from Cloud**
+- [ ] Confirmation dialog appears before data is overwritten
+- [ ] After confirm, profiles, mappings, and settings match the pushed data
+- [ ] Cloud sync works without any Firebase SDK (pure REST API)
+- [ ] Sync handles empty state gracefully (no data to push/pull)
+- [ ] Network error shows friendly error message
+- [ ] No authentication required (Firestore test mode)
+
 ### Enhanced Date Handling (Phase 7)
 - [ ] Set Date Fill Mode to "Auto (detect from element)"
 - [ ] Map a date field with placeholder "DD/MM/YYYY" — fill uses DD/MM/YYYY format
@@ -745,6 +791,7 @@ alhijra-visa-ocr-assistant/
 ├── formFiller.js
 ├── mrzParser.js          (Phase 3 - MRZ detection & parsing)
 ├── ocrEngine.js           (Phase 3 - OCR orchestration)
+├── firestore.js           (Phase 8 - Firestore REST API client, sync helpers)
 ├── storage.js             (Phase 6 - backup/restore, audit log CRUD, staff CRUD)
 ├── constants.js           (Phase 6 - STAFF_MEMBERS, AUDIT_EVENT_TYPES, new STORAGE_KEYS/DEFAULT_SETTINGS)
 ├── utils.js               (Phase 7 - enhanced formatDate with auto-detect)
@@ -765,7 +812,7 @@ alhijra-visa-ocr-assistant/
 └── README.md
 ```
 
-## Known Limitations (Phases 1-7)
+## Known Limitations (Phases 1-8)
 
 - Dynamic Customer/Travel field auto-fill is NOT implemented (future phases)
 - Does not support iframe fields
@@ -794,15 +841,21 @@ alhijra-visa-ocr-assistant/
 - Keyboard shortcuts do not work when input fields are focused (e.g., typing in a filter box while pressing Esc closes the modal anyway)
 - Date auto-detection from placeholder uses English pattern detection only; Arabic placeholders may fall back to YYYY-MM-DD
 - Report generation exports JSON only — no PDF or CSV formats available
+- Cloud sync is manual (push/pull buttons) — no automatic real-time sync yet
+- Firestore in test mode is insecure for production; requires rule hardening
+- No conflict resolution — latest push overwrites all cloud data
+- No offline queue — sync fails without internet connection
+- Audit logs are NOT synced to cloud (only local)
 
 ## Next Phase Plan
 
-### Phase 8: Cloud Sync & Collaboration
-- Cloud backup/restore via Firebase or similar
-- Real-time staff sync across devices
-- Shared profiles and mappings
-- Role-based access control
-- Advanced analytics dashboard with charts
+### Phase 9: Real-Time Sync & Production Hardening
+- Firestore security rules for production
+- Real-time listener (onSnapshot) for automatic cross-device sync
+- Sync conflict detection and resolution
+- Offline queue with retry
+- Audit log sync to cloud
+- Performance profiling for large datasets
 
 ## License
 

@@ -5,9 +5,12 @@
 
 var FIRESTORE_CONFIG = {
   apiKey: 'AIzaSyDDuq7aLPpQDw6IavfsQL2xtCXzRh9DYK8',
+  authDomain: 'alhijra-visa-ocr-assistant.firebaseapp.com',
   projectId: 'alhijra-visa-ocr-assistant',
-  databaseId: '(default)',
-  appId: '1:62147262528:web:868ed6252ba8e6aac047a5'
+  storageBucket: 'alhijra-visa-ocr-assistant.firebasestorage.app',
+  messagingSenderId: '62147262528',
+  appId: '1:62147262528:web:beb55256d355d275c047a5',
+  databaseId: '(default)'
 };
 
 var FIRESTORE_BASE = 'https://firestore.googleapis.com/v1/projects/' + FIRESTORE_CONFIG.projectId + '/databases/' + FIRESTORE_CONFIG.databaseId;
