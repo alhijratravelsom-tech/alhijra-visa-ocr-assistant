@@ -1,6 +1,6 @@
 /* Alhijra Visa OCR Assistant - Firestore REST API Client
+ * Phase 9: Real-time polling, conflict resolution, offline queue, audit log sync
  * Uses Firestore REST API directly (no Firebase SDK).
- * Requires Firestore in test mode (or with appropriate rules).
  */
 
 var FIRESTORE_CONFIG = {
@@ -10,10 +10,17 @@ var FIRESTORE_CONFIG = {
   storageBucket: 'alhijra-visa-ocr-assistant.firebasestorage.app',
   messagingSenderId: '62147262528',
   appId: '1:62147262528:web:beb55256d355d275c047a5',
-  databaseId: '(default)'
+  databaseId: '(default)',
+  teamToken: 'alhijra_2026_team_secret'
 };
 
 var FIRESTORE_BASE = 'https://firestore.googleapis.com/v1/projects/' + FIRESTORE_CONFIG.projectId + '/databases/' + FIRESTORE_CONFIG.databaseId;
+
+var syncPollInterval = null;
+var syncLastCloudUpdate = null;
+var syncIsPolling = false;
+
+/* ==================== INTERNAL HELPERS ==================== */
 
 function _toFirestoreValue(val) {
   if (val === null || val === undefined) return { nullValue: null };
@@ -99,7 +106,7 @@ async function _fetch(url, options) {
   }
 }
 
-/* ==================== PUBLIC API ==================== */
+/* ==================== CRUD ==================== */
 
 async function fsGetDocument(collection, docId) {
   var data = await _fetch(_buildUrl(collection, docId));
@@ -107,6 +114,7 @@ async function fsGetDocument(collection, docId) {
 }
 
 async function fsSetDocument(collection, docId, data) {
+  data.teamToken = FIRESTORE_CONFIG.teamToken;
   var body = _toFirestoreDocument(data);
   var url = _buildUrl(collection, docId);
   var resp = await _fetch(url, {
@@ -118,6 +126,7 @@ async function fsSetDocument(collection, docId, data) {
 }
 
 async function fsUpdateDocument(collection, docId, data) {
+  data.teamToken = FIRESTORE_CONFIG.teamToken;
   var mask = Object.keys(data).map(function (k) { return 'updateMask.fieldPaths=' + encodeURIComponent(k); }).join('&');
   var url = _buildUrl(collection, docId) + '?' + mask;
   var body = _toFirestoreDocument(data);
@@ -165,9 +174,161 @@ async function fsListDocuments(collection) {
   return data.documents.map(function (d) { return _fromFirestoreDocument(d); });
 }
 
+/* ==================== OFFLINE QUEUE ==================== */
+
+var QUEUE_KEY = 'alhijra_syncQueue';
+
+async function _getQueue() {
+  try {
+    var data = await loadFromStorage(QUEUE_KEY);
+    return data || [];
+  } catch (e) { return []; }
+}
+
+async function _saveQueue(queue) {
+  try {
+    await saveToStorage(QUEUE_KEY, queue);
+  } catch (e) {}
+}
+
+async function fsEnqueueOperation(type, payload) {
+  var queue = await _getQueue();
+  queue.push({
+    id: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+    type: type,
+    payload: payload,
+    createdAt: new Date().toISOString(),
+    retries: 0
+  });
+  await _saveQueue(queue);
+}
+
+async function fsProcessQueue() {
+  var queue = await _getQueue();
+  if (queue.length === 0) return { processed: 0, failed: 0 };
+
+  var processed = 0, failed = 0;
+  var remaining = [];
+
+  for (var i = 0; i < queue.length; i++) {
+    var item = queue[i];
+    try {
+      if (item.type === 'push_full') {
+        await fsPushFullSync();
+      } else if (item.type === 'push_audit') {
+        await fsSyncAuditLogs();
+      }
+      processed++;
+    } catch (e) {
+      item.retries++;
+      if (item.retries < 5) {
+        remaining.push(item);
+      } else {
+        failed++;
+      }
+    }
+  }
+
+  await _saveQueue(remaining);
+  return { processed: processed, failed: failed, remaining: remaining.length };
+}
+
+async function fsGetQueueStatus() {
+  var queue = await _getQueue();
+  return { pending: queue.length, items: queue };
+}
+
+/* ==================== CONFLICT DETECTION ==================== */
+
+async function fsDetectConflicts() {
+  try {
+    var cloudData = await fsPullFullSync();
+    if (!cloudData || !cloudData.lastSyncedAt) return { hasConflict: false };
+
+    var lastLocalSync = await loadFromStorage('alhijra_lastSyncTimestamp') || '1970-01-01T00:00:00.000Z';
+
+    var localProfiles = await getProfiles();
+    var localUpdatedAt = '1970-01-01T00:00:00.000Z';
+    for (var i = 0; i < localProfiles.length; i++) {
+      if (localProfiles[i].updatedAt && localProfiles[i].updatedAt > localUpdatedAt) {
+        localUpdatedAt = localProfiles[i].updatedAt;
+      }
+    }
+
+    var cloudNewer = cloudData.lastSyncedAt > lastLocalSync;
+    var localNewer = localUpdatedAt > cloudData.lastSyncedAt;
+
+    return {
+      hasConflict: cloudNewer && localNewer,
+      cloudNewer: cloudNewer,
+      localNewer: localNewer,
+      cloudUpdatedAt: cloudData.lastSyncedAt,
+      localUpdatedAt: localUpdatedAt
+    };
+  } catch (e) {
+    return { hasConflict: false, error: e.message };
+  }
+}
+
+/* Merge: combine local and cloud data with timestamp-based resolution */
+async function fsMergeSync() {
+  var conflict = await fsDetectConflicts();
+  if (!conflict.hasConflict) {
+    /* No conflict — just sync the newer side */
+    if (conflict.cloudNewer) {
+      var cloudData = await fsPullFullSync();
+      if (cloudData) await fsApplySync(cloudData);
+      return { source: 'cloud', message: 'Cloud data applied' };
+    }
+    return { source: 'local', message: 'Local data is current' };
+  }
+
+  /* Conflict: merge profiles from both sides */
+  var cloudData = await fsPullFullSync();
+  if (!cloudData) return { source: 'local', message: 'No cloud data' };
+
+  var localProfiles = await getProfiles();
+  var cloudProfiles = cloudData.profiles || [];
+  var mergedProfiles = [];
+  var profileMap = {};
+
+  /* Index local profiles */
+  for (var i = 0; i < localProfiles.length; i++) {
+    profileMap[localProfiles[i].id] = { profile: localProfiles[i], source: 'local' };
+  }
+  /* Index cloud profiles, prefer newer timestamp */
+  for (var i = 0; i < cloudProfiles.length; i++) {
+    var cp = cloudProfiles[i];
+    if (!profileMap[cp.id] || (cp.updatedAt || '') > (profileMap[cp.id].profile.updatedAt || '')) {
+      profileMap[cp.id] = { profile: cp, source: 'cloud' };
+    }
+  }
+  for (var id in profileMap) {
+    if (profileMap.hasOwnProperty(id)) mergedProfiles.push(profileMap[id].profile);
+  }
+  await saveProfiles(mergedProfiles);
+
+  /* Merge mappings: prefer cloud for profiles that exist, add local-only */
+  var cloudMappings = cloudData.mappings || {};
+  for (var i = 0; i < localProfiles.length; i++) {
+    var lid = localProfiles[i].id;
+    if (!cloudMappings[lid]) {
+      var localMap = await loadMapping(lid);
+      if (localMap) cloudMappings[lid] = localMap;
+    }
+  }
+  var profileKeys = Object.keys(cloudMappings);
+  for (var i = 0; i < profileKeys.length; i++) {
+    if (cloudMappings[i] && Array.isArray(cloudMappings[i])) {
+      await saveMapping(profileKeys[i], cloudMappings[i]);
+    }
+  }
+
+  return { source: 'merged', message: 'Local and cloud data merged' };
+}
+
 /* ==================== SYNC HELPERS ==================== */
 
-/* Sync local data to Firestore: stores all profiles, mappings, staff, settings */
 async function fsPushFullSync() {
   var profiles = await getProfiles();
   var mappings = {};
@@ -188,20 +349,22 @@ async function fsPushFullSync() {
     version: '1.0.0'
   };
 
-  /* Store as a single document in 'sync' collection with fixed ID */
   await fsSetDocument('sync', 'latest', syncData);
 
-  /* Also store a history entry */
+  /* History entry */
   await fsSetDocument('sync_history', new Date().toISOString().replace(/[:.]+/g, '-'), {
     syncedAt: syncData.lastSyncedAt,
     profileCount: profiles.length,
     totalMappings: Object.keys(mappings).length
   });
 
+  /* Update local timestamp */
+  await saveToStorage('alhijra_lastSyncTimestamp', syncData.lastSyncedAt);
+  syncLastCloudUpdate = syncData.lastSyncedAt;
+
   return syncData;
 }
 
-/* Pull latest sync data from Firestore */
 async function fsPullFullSync() {
   try {
     var doc = await fsGetDocument('sync', 'latest');
@@ -212,7 +375,6 @@ async function fsPullFullSync() {
   }
 }
 
-/* Apply synced data locally (overwrites current) */
 async function fsApplySync(syncData) {
   if (!syncData || !syncData.profiles || !syncData.mappings) {
     throw new Error('Invalid sync data');
@@ -230,14 +392,80 @@ async function fsApplySync(syncData) {
   if (syncData.settings) await saveSettings(syncData.settings);
   if (syncData.staffMembers) await saveStaffMembers(syncData.staffMembers);
   if (syncData.activeProfileId) await saveActiveProfile(syncData.activeProfileId);
+  await saveToStorage('alhijra_lastSyncTimestamp', syncData.lastSyncedAt || new Date().toISOString());
   return true;
 }
 
-/* Sync latest audit log entries */
+/* ==================== AUDIT LOG SYNC ==================== */
+
 async function fsSyncAuditLogs() {
-  var logs = await getAuditLogs(50);
-  await fsSetDocument('sync_audit', new Date().toISOString().replace(/[:.]+/g, '-'), {
+  var logs = await getAuditLogs(100);
+  var batchId = new Date().toISOString().replace(/[:.]+/g, '-');
+  await fsSetDocument('audit_logs', 'batch_' + batchId, {
     logs: logs,
+    count: logs.length,
     syncedAt: new Date().toISOString()
   });
+  return { batchId: batchId, count: logs.length };
+}
+
+/* ==================== REAL-TIME POLLING ==================== */
+
+function fsStartPolling(intervalMs) {
+  fsStopPolling();
+  intervalMs = intervalMs || 30000;
+  syncIsPolling = true;
+  syncPollInterval = setInterval(async function () {
+    if (!syncIsPolling) return;
+    try {
+      var cloudData = await fsPullFullSync();
+      if (!cloudData || !cloudData.lastSyncedAt) return;
+      if (syncLastCloudUpdate && cloudData.lastSyncedAt <= syncLastCloudUpdate) return;
+      syncLastCloudUpdate = cloudData.lastSyncedAt;
+      var lastLocalSync = await loadFromStorage('alhijra_lastSyncTimestamp') || '1970-01-01T00:00:00.000Z';
+      if (cloudData.lastSyncedAt > lastLocalSync) {
+        /* Cloud has newer data — auto-pull */
+        await fsApplySync(cloudData);
+        var cb = window.__onSyncUpdate;
+        if (cb) cb({ type: 'auto_pull', timestamp: cloudData.lastSyncedAt });
+      }
+    } catch (e) {}
+  }, intervalMs);
+}
+
+function fsStopPolling() {
+  syncIsPolling = false;
+  if (syncPollInterval) {
+    clearInterval(syncPollInterval);
+    syncPollInterval = null;
+  }
+}
+
+function fsSetSyncCallback(cb) {
+  window.__onSyncUpdate = cb;
+}
+
+/* ==================== PUSH WITH QUEUE FALLBACK ==================== */
+
+async function fsSafePush() {
+  try {
+    var result = await fsPushFullSync();
+    /* Process any queued operations */
+    var queueResult = await fsProcessQueue();
+    return { success: true, result: result, queue: queueResult };
+  } catch (e) {
+    /* Queue for later */
+    await fsEnqueueOperation('push_full', {});
+    return { success: false, error: e.message, queued: true };
+  }
+}
+
+async function fsSafeSyncAuditLogs() {
+  try {
+    var result = await fsSyncAuditLogs();
+    return { success: true, result: result };
+  } catch (e) {
+    await fsEnqueueOperation('push_audit', {});
+    return { success: false, error: e.message, queued: true };
+  }
 }

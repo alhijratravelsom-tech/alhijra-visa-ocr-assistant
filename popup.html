@@ -261,10 +261,12 @@
         <p>Sync all data across devices via Firebase. Requires internet connection.</p>
         <div class="sync-status">
           <span id="syncLastStatus" class="sync-status-text">Not synced yet</span>
+          <span id="syncQueueStatus" class="sync-queue-text" style="display:none;"></span>
         </div>
         <div class="sync-actions">
           <button data-action="sync-push" class="btn btn-primary">Push to Cloud</button>
           <button data-action="sync-pull" class="btn btn-secondary">Pull from Cloud</button>
+          <button id="syncAutoToggle" data-action="sync-toggle-auto" class="btn btn-sm btn-outline">Auto: Off</button>
         </div>
       </div>
     </div>
@@ -352,6 +354,13 @@
           <label>Confirm Before Document Review</label>
           <select id="settingConfirmBeforeDocReview" class="select-field">
             <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Auto Cloud Sync</label>
+          <select id="settingAutoSync" class="select-field">
+            <option value="true">Yes (poll every 30s)</option>
             <option value="false">No</option>
           </select>
         </div>

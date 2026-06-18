@@ -166,7 +166,8 @@ const DEFAULT_SETTINGS = {
   confirmBeforeDocumentReview: true,
   currentStaffId: 'staff1',
   autoBackupReminder: true,
-  backupReminderDays: 7
+  backupReminderDays: 7,
+  autoSync: false
 };
 
 const DATE_FILL_MODES = {

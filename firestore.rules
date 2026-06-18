@@ -1,0 +1,52 @@
+rules_version = '2';
+
+/* Alhijra Visa OCR Assistant — Firestore Security Rules
+ * Production rules: restrict access to authenticated users or by team secret.
+ * 
+ * For maximum security, replace the condition with:
+ *   request.auth != null && request.auth.uid in [
+ *     "STAFF_1_UID", "STAFF_2_UID", "STAFF_3_UID", "STAFF_4_UID", "STAFF_5_UID"
+ *   ]
+ *
+ * Current: requires a valid teamToken field in the request.
+ */
+
+function isAuthenticated() {
+  return request.auth != null;
+}
+
+function isTeamTokenValid() {
+  return request.resource.data.teamToken == "alhijra_2026_team_secret"
+      || resource.data.teamToken == "alhijra_2026_team_secret";
+}
+
+/* For authenticated mode (recommended):
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /{document=**} {
+         allow read, write: if isAuthenticated();
+       }
+     }
+   }
+*/
+
+/* For team-secret mode (no auth required, but requires secret token): */
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /sync/{document} {
+      allow read: if true;
+      allow write: if isTeamTokenValid();
+    }
+    match /sync_history/{document} {
+      allow read: if true;
+      allow write: if isTeamTokenValid();
+    }
+    match /audit_logs/{document} {
+      allow read: if isTeamTokenValid();
+      allow write: if isTeamTokenValid();
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

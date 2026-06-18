@@ -162,6 +162,7 @@
       case 'generate-report': generateReportHandler(); break;
       case 'sync-push': syncPushHandler(); break;
       case 'sync-pull': syncPullHandler(); break;
+      case 'sync-toggle-auto': syncToggleAutoHandler(); break;
       case 'restore-backup-trigger': document.getElementById('restoreFileInput').click(); break;
       case 'logs-refresh': renderAuditLogs(); break;
       case 'logs-export': exportAuditLogs(); break;
@@ -1229,6 +1230,7 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
+      trySyncAuditLogs();
       showFillResultModal(result.result);
     } catch (err) {
       showMessage('dashMessage', 'Fill failed: ' + err.message, 'error');
@@ -1863,6 +1865,7 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
+      trySyncAuditLogs();
       showDynamicFillResultModal(result.result);
     } catch (err) {
       showMessage('dashMessage', 'Dynamic fill failed: ' + err.message, 'error');
@@ -2098,6 +2101,7 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
+      trySyncAuditLogs();
       trySaveCustomerFillResult(result.result);
       showCustomerFillResultModal(result.result);
     } catch (err) {
@@ -2350,6 +2354,7 @@
         fieldsSkipped: (result.result.skipped || []).length
       });
 
+      trySyncAuditLogs();
       trySaveTravelFillResult(result.result);
       showTravelFillResultModal(result.result);
     } catch (err) {
@@ -2718,6 +2723,95 @@
     }
   }
 
+  /* ==================== PHASE 9 — SYNC ENHANCEMENTS ==================== */
+
+  function syncToggleAutoHandler() {
+    var btn = document.getElementById('syncAutoToggle');
+    var isOn = currentSettings.autoSync;
+    currentSettings.autoSync = !isOn;
+    saveSettings(currentSettings);
+    if (currentSettings.autoSync) {
+      btn.textContent = 'Auto: On';
+      btn.className = 'btn btn-sm btn-primary';
+      fsStartPolling(30000);
+      fsSetSyncCallback(syncAutoUpdateCallback);
+      updateSyncQueueStatus();
+    } else {
+      btn.textContent = 'Auto: Off';
+      btn.className = 'btn btn-sm btn-outline';
+      fsStopPolling();
+    }
+  }
+
+  function syncAutoUpdateCallback(update) {
+    if (update.type === 'auto_pull') {
+      var statusEl = document.getElementById('syncLastStatus');
+      if (statusEl) statusEl.textContent = 'Auto-synced: ' + new Date(update.timestamp).toLocaleString();
+      loadInitialData();
+    }
+  }
+
+  async function updateSyncQueueStatus() {
+    try {
+      var status = await fsGetQueueStatus();
+      var el = document.getElementById('syncQueueStatus');
+      if (el) {
+        if (status.pending > 0) {
+          el.textContent = status.pending + ' pending operation(s)';
+          el.style.display = '';
+        } else {
+          el.style.display = 'none';
+        }
+      }
+    } catch (e) {}
+  }
+
+  /* Override existing syncPushHandler to use safe push with queue fallback */
+  var _originalSyncPush = syncPushHandler;
+  syncPushHandler = async function () {
+    try {
+      showLoading(true);
+      var result = await fsSafePush();
+      if (result.success) {
+        var statusEl = document.getElementById('syncLastStatus');
+        if (statusEl) statusEl.textContent = 'Last sync: ' + new Date(result.result.lastSyncedAt).toLocaleString() + ' (' + result.result.profiles.length + ' profiles)';
+        showMessage('importExportMessage', 'Data synced to cloud successfully.', 'success');
+        /* Sync audit logs after push */
+        fsSafeSyncAuditLogs();
+      } else if (result.queued) {
+        showMessage('importExportMessage', 'Sync queued — will retry when online.', 'warning');
+      } else {
+        showMessage('importExportMessage', 'Sync failed: ' + result.error, 'error');
+      }
+      updateSyncQueueStatus();
+    } catch (err) {
+      showMessage('importExportMessage', 'Sync failed: ' + err.message, 'error');
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  /* Integrate audit log sync into fill operations */
+  function trySyncAuditLogs() {
+    if (currentSettings.autoSync) {
+      fsSafeSyncAuditLogs().then(function () { updateSyncQueueStatus(); });
+    }
+  }
+
+  /* Init auto-sync on load */
+  function initPhase9() {
+    var btn = document.getElementById('syncAutoToggle');
+    if (btn) {
+      btn.textContent = currentSettings.autoSync ? 'Auto: On' : 'Auto: Off';
+      btn.className = currentSettings.autoSync ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+      if (currentSettings.autoSync) {
+        fsStartPolling(30000);
+        fsSetSyncCallback(syncAutoUpdateCallback);
+      }
+    }
+    updateSyncQueueStatus();
+  }
+
   /* ==================== PHASE 7 — REPORTING ==================== */
 
   async function generateReportHandler() {
@@ -2810,5 +2904,8 @@
 
   /* Init Phase 6 */
   initPhase6();
+
+  /* Init Phase 9 */
+  initPhase9();
 
 })();
