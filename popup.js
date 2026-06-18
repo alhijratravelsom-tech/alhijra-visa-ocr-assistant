@@ -155,6 +155,7 @@
         var totalPages = Math.max(1, Math.ceil(currentFields.length / fieldPageSize));
         if (fieldCurrentPage < totalPages) { fieldCurrentPage++; renderFieldsTable(); }
         break;
+      case 'inline-edit-label': inlineEditLabel(fieldId); break;
       case 'docs-highlight-fields': highlightDocUploadFields(); break;
       case 'docs-refresh': refreshDocsList(); break;
       /* Phase 6 */
@@ -634,7 +635,8 @@
       return '<div class="mapping-item" id="mapping-' + field.fieldId + '" draggable="true" data-field-id="' + field.fieldId + '">' +
         '<div class="mapping-item-header">' +
           '<span class="drag-handle" title="Drag to reorder">&#9776;</span>' +
-          '<span class="mapping-item-label">' + escapeHtml(field.label || 'Unnamed Field') + ' <span class="mapping-item-type">' + escapeHtml(field.fieldType || '') + '</span></span>' +
+          '<span class="mapping-item-label" data-field-id="' + field.fieldId + '" data-action="inline-edit-label" title="Click to edit label">' + escapeHtml(field.label || 'Unnamed Field') + '</span>' +
+          '<span class="mapping-item-type">' + escapeHtml(field.fieldType || '') + '</span>' +
           '<span class="badge ' + getCategoryBadgeClass(category || '') + '">' + (category || 'Unclassified') + '</span>' +
         '</div>' +
         '<div class="mapping-controls">' +
@@ -2988,6 +2990,42 @@
     } finally {
       showLoading(false);
     }
+  }
+
+  /* ==================== PHASE 10 — INLINE FIELD EDITING ==================== */
+
+  function inlineEditLabel(fieldId) {
+    var span = document.querySelector('.mapping-item-label[data-field-id="' + fieldId + '"]');
+    if (!span) return;
+    var currentLabel = span.textContent;
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input';
+    input.value = currentLabel;
+    input.setAttribute('data-field-id', fieldId);
+    span.parentNode.replaceChild(input, span);
+    input.focus();
+    input.select();
+
+    function saveLabel() {
+      var newLabel = input.value.trim() || 'Unnamed Field';
+      for (var i = 0; i < currentFields.length; i++) {
+        if (currentFields[i].fieldId === fieldId) {
+          currentFields[i].label = newLabel;
+          currentFields[i]._labelEdited = true;
+          break;
+        }
+      }
+      /* Persist */
+      saveScannedFields(currentFields);
+      renderMappingList();
+    }
+
+    input.addEventListener('blur', saveLabel);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); saveLabel(); }
+      if (e.key === 'Escape') { renderMappingList(); }
+    });
   }
 
   /* Init OCR on first load */
