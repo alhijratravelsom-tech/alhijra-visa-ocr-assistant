@@ -631,8 +631,9 @@
       var sources = getSourcesForCategory(category);
       var isDisabled = !sources || sources.length === 0;
 
-      return '<div class="mapping-item" id="mapping-' + field.fieldId + '">' +
+      return '<div class="mapping-item" id="mapping-' + field.fieldId + '" draggable="true" data-field-id="' + field.fieldId + '">' +
         '<div class="mapping-item-header">' +
+          '<span class="drag-handle" title="Drag to reorder">&#9776;</span>' +
           '<span class="mapping-item-label">' + escapeHtml(field.label || 'Unnamed Field') + ' <span class="mapping-item-type">' + escapeHtml(field.fieldType || '') + '</span></span>' +
           '<span class="badge ' + getCategoryBadgeClass(category || '') + '">' + (category || 'Unclassified') + '</span>' +
         '</div>' +
@@ -667,6 +668,40 @@
         '</div>' +
       '</div>';
     }).join('');
+
+    /* Drag-and-drop reordering */
+    var items = container.querySelectorAll('.mapping-item');
+    for (var di = 0; di < items.length; di++) {
+      items[di].addEventListener('dragstart', function (e) {
+        e.dataTransfer.setData('text/plain', this.getAttribute('data-field-id'));
+        this.classList.add('dragging');
+      });
+      items[di].addEventListener('dragend', function (e) {
+        this.classList.remove('dragging');
+        container.querySelectorAll('.mapping-item').forEach(function (el) { el.classList.remove('drag-over'); });
+      });
+      items[di].addEventListener('dragover', function (e) { e.preventDefault(); });
+      items[di].addEventListener('dragenter', function (e) { this.classList.add('drag-over'); });
+      items[di].addEventListener('dragleave', function (e) { this.classList.remove('drag-over'); });
+      items[di].addEventListener('drop', function (e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        var draggedId = e.dataTransfer.getData('text/plain');
+        var targetId = this.getAttribute('data-field-id');
+        if (!draggedId || !targetId || draggedId === targetId) return;
+        var draggedIndex = -1, targetIndex = -1;
+        for (var i = 0; i < currentFields.length; i++) {
+          if (currentFields[i].fieldId === draggedId) draggedIndex = i;
+          if (currentFields[i].fieldId === targetId) targetIndex = i;
+        }
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        var item = currentFields.splice(draggedIndex, 1)[0];
+        currentFields.splice(targetIndex, 0, item);
+        renderMappingList();
+        /* Persist field order in scan */
+        saveScannedFields(currentFields);
+      });
+    }
   }
 
   function onCategoryChange(fieldId) {
@@ -1071,6 +1106,12 @@
     if (ctf) ctf.value = currentSettings.confirmBeforeTravelFill !== false ? 'true' : 'false';
     var cdr = document.getElementById('settingConfirmBeforeDocReview');
     if (cdr) cdr.value = currentSettings.confirmBeforeDocumentReview !== false ? 'true' : 'false';
+    var as = document.getElementById('settingAutoSync');
+    if (as) as.value = currentSettings.autoSync ? 'true' : 'false';
+    var th = document.getElementById('settingTheme');
+    if (th) th.value = currentSettings.theme || 'light';
+    var dr = document.getElementById('settingDirection');
+    if (dr) dr.value = currentSettings.direction || 'ltr';
   }
 
   async function saveSettingsHandler() {
@@ -1084,13 +1125,16 @@
       dateFillMode: document.getElementById('settingDateFillMode') ? document.getElementById('settingDateFillMode').value : 'auto',
       confirmBeforeCustomerFill: document.getElementById('settingConfirmBeforeCustomerFill') ? document.getElementById('settingConfirmBeforeCustomerFill').value === 'true' : true,
       confirmBeforeTravelFill: document.getElementById('settingConfirmBeforeTravelFill') ? document.getElementById('settingConfirmBeforeTravelFill').value === 'true' : true,
-      confirmBeforeDocumentReview: document.getElementById('settingConfirmBeforeDocReview') ? document.getElementById('settingConfirmBeforeDocReview').value === 'true' : true
+      confirmBeforeDocumentReview: document.getElementById('settingConfirmBeforeDocReview') ? document.getElementById('settingConfirmBeforeDocReview').value === 'true' : true,
+      autoSync: document.getElementById('settingAutoSync') ? document.getElementById('settingAutoSync').value === 'true' : false,
+      theme: document.getElementById('settingTheme') ? document.getElementById('settingTheme').value : 'light',
+      direction: document.getElementById('settingDirection') ? document.getElementById('settingDirection').value : 'ltr'
     };
     try {
       setDebugMode(currentSettings.debugMode);
+      applyTheme(currentSettings.theme);
+      applyDirection(currentSettings.direction);
       await saveSettings(currentSettings);
-      var dir = currentSettings.preferredLanguage === 'ar' ? 'rtl' : 'ltr';
-      document.documentElement.dir = dir;
       showMessage('settingsMessage', 'Settings saved successfully.', 'success');
     } catch (err) {
       showMessage('settingsMessage', 'Failed to save settings: ' + err.message, 'error');
@@ -2686,6 +2730,59 @@
     renderAuditLogs();
   }
 
+  /* ==================== PHASE 10 — THEME, DIRECTION, OFFLINE ==================== */
+
+  function applyTheme(theme) {
+    if (theme === 'dark') {
+      document.body.classList.add('theme-dark');
+    } else {
+      document.body.classList.remove('theme-dark');
+    }
+  }
+
+  function applyDirection(dir) {
+    if (dir === 'rtl') {
+      document.documentElement.setAttribute('dir', 'rtl');
+    } else {
+      document.documentElement.setAttribute('dir', 'ltr');
+    }
+  }
+
+  function initThemeAndDirection() {
+    applyTheme(currentSettings.theme || 'light');
+    applyDirection(currentSettings.direction || 'ltr');
+    var themeEl = document.getElementById('settingTheme');
+    if (themeEl) themeEl.value = currentSettings.theme || 'light';
+    var dirEl = document.getElementById('settingDirection');
+    if (dirEl) dirEl.value = currentSettings.direction || 'ltr';
+  }
+
+  function initOfflineIndicator() {
+    function updateBadge() {
+      var badge = document.getElementById('offlineBadge');
+      if (!badge) return;
+      if (navigator.onLine) {
+        badge.textContent = 'Online';
+        badge.className = 'offline-badge online';
+      } else {
+        badge.textContent = 'Offline';
+        badge.className = 'offline-badge offline';
+      }
+    }
+    updateBadge();
+    window.addEventListener('online', updateBadge);
+    window.addEventListener('offline', updateBadge);
+  }
+
+  function enhanceErrorMessage(msg) {
+    if (msg.indexOf('Firestore') !== -1) return msg + ' — تحقق من اتصال الإنترنت أو إعدادات Firebase';
+    if (msg.indexOf('network') !== -1 || msg.indexOf('fetch') !== -1) return msg + ' — تأكد من اتصال الإنترنت';
+    if (msg.indexOf('permission') !== -1 || msg.indexOf('403') !== -1) return msg + ' — تحقق من صلاحيات الإضافة';
+    if (msg.indexOf('content script') !== -1 || msg.indexOf('connect') !== -1) return msg + ' — أعد تحميل الصفحة ثم حاول مجدداً';
+    if (msg.indexOf('storage') !== -1) return msg + ' — حاول مسح البيانات من Import/Export ثم أعد المحاولة';
+    return msg;
+  }
+
   /* ==================== PHASE 8 — CLOUD SYNC ==================== */
 
   async function syncPushHandler() {
@@ -2907,5 +3004,9 @@
 
   /* Init Phase 9 */
   initPhase9();
+
+  /* Init Phase 10 */
+  initThemeAndDirection();
+  initOfflineIndicator();
 
 })();

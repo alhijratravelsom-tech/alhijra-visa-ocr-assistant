@@ -167,7 +167,9 @@ const DEFAULT_SETTINGS = {
   currentStaffId: 'staff1',
   autoBackupReminder: true,
   backupReminderDays: 7,
-  autoSync: false
+  autoSync: false,
+  theme: 'light',
+  direction: 'ltr'
 };
 
 const DATE_FILL_MODES = {
