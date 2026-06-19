@@ -91,7 +91,7 @@ const FILE_UPLOAD_SOURCES = [
 ];
 
 const STAFF_MEMBERS = [
-  { id: 'staff1', name: 'Staff 1', color: '#163A5F', initials: 'S1' },
+  { id: 'staff1', name: 'عمار تقي', color: '#163A5F', initials: 'ع' },
   { id: 'staff2', name: 'Staff 2', color: '#8CBFE8', initials: 'S2' },
   { id: 'staff3', name: 'Staff 3', color: '#D4AF37', initials: 'S3' },
   { id: 'staff4', name: 'Staff 4', color: '#2E7D32', initials: 'S4' },
