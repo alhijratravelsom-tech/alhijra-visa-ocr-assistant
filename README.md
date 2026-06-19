@@ -3,8 +3,22 @@
 **Client:** Alhijra Travel Agency  
 **Website:** [www.alhijratravel.so](https://www.alhijratravel.so)  
 **Email:** info@alhijratravel.so  
-**Version:** 1.0.0 (Phases 1-11)  
-**ZIP:** `alhijra-visa-ocr-assistant-v1.0.0.zip` (16.4 MB, 30+ files)
+**Version:** 1.1.0-local (Local-Only Safe Office Build)  
+**ZIP:** `alhijra-visa-ocr-assistant-v1.1.0-local.zip` (16.5 MB, 32 files)
+
+## v1.1.0-local — Local-Only Safe Office Build
+
+This version removes all cloud sync features for production safety.
+
+- **No Firestore/Cloud Sync** — `firestore.js` moved to `disabled-cloud-sync/`, not loaded
+- **No external host permissions** — Only `https://visa.visitsaudi.com/*`
+- **No sensitive storage** — Passport, customer, travel data in memory only
+- **Forbidden field protection** — CAPTCHA, OTP, payment, password fields blocked from auto-fill
+- **Sanitized audit logs** — No passport/customer/travel values stored
+- **OCR/MRZ improvements** — Better OCR error correction, robust TD3 detection
+- **Dedicated Backup tab** — Clear backup/restore workflow
+- **Staff member** عمار تقي added
+- **44/44 unit tests passing**
 
 ## Overview
 
@@ -868,6 +882,9 @@ alhijra-visa-ocr-assistant/
 ├── storage.js             (Phase 6 - backup/restore, audit log CRUD, staff CRUD)
 ├── constants.js           (Phase 6/10 - STAFF_MEMBERS, AUDIT_EVENT_TYPES, STORAGE_KEYS, DEFAULT_SETTINGS with theme/direction)
 ├── utils.js               (Phase 7 - enhanced formatDate with auto-detect, helpers)
+├── disabled-cloud-sync/   (v1.1.0 - disabled Firestore files, not loaded by extension)
+│   ├── firestore.js       (Firestore REST API client — disabled for local-only build)
+│   └── firestore.rules    (Firestore security rules — disabled for local-only build)
 ├── download-lang-data.ps1   (script in libs/ to download eng.traineddata)
 ├── tests/
 │   ├── utils.test.js      (Phase 11 - 22 unit tests for utility functions)
@@ -892,7 +909,7 @@ alhijra-visa-ocr-assistant/
 └── README.md
 ```
 
-## Known Limitations (Phases 1-11)
+## Known Limitations (v1.1.0-local)
 
 - Dynamic Customer/Travel field auto-fill is NOT implemented (future phases)
 - Does not support iframe fields
@@ -940,9 +957,8 @@ alhijra-visa-ocr-assistant/
 
 ## Next Phase Plan (Future)
 
-### Phase 12: Final Polish & Release
-- GitHub Issues template for bug tracking
-- Release version 1.0.0 final tag
+### v1.2.0: Staff Configuration & Final Polish
+- Add all staff member names (currently Staff 2-5 are generic)
 - Performance optimization based on benchmark results
 - Additional edge case handling for date/OCR parsing
 
